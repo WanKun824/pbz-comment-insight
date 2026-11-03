@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """隐私扫描：找出含评论原文 / 昵称 / UID 的文件，决定哪些不能进公开仓库。
 
     python scripts/privacy_scan.py
