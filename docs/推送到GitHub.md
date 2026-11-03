@@ -2,7 +2,7 @@
 
 代码仓库：<https://github.com/WanKun824/pbz-comment-insight>
 
-仓库发布源码、文档、模型配置、评测指标、中文聚合 CSV 和自包含 HTML 看板。原始评论、用户标识、训练集、预测 parquet、可行动清单及模型权重保留在本地，不随 Git 推送。
+仓库发布源码、文档、模型配置、评测指标、中文聚合 CSV 和自包含 HTML 看板。原始评论、用户标识、训练集、预测 parquet 和可行动清单保留在本地。模型权重通过 [Release v1.0.0](https://github.com/WanKun824/pbz-comment-insight/releases/tag/v1.0.0) 的独立附件发布，不进入普通 Git 提交。
 
 ## 获取项目
 
@@ -96,19 +96,32 @@ gh workflow run pages.yml --repo WanKun824/pbz-comment-insight
 
 ## 模型权重单独分发
 
-`model.safetensors` 约 644 MB，不放进普通 Git 提交。需要分发时，可单独制作权重包：
+当前发布：[v1.0.0](https://github.com/WanKun824/pbz-comment-insight/releases/tag/v1.0.0)。用户下载和调用步骤见 [模型下载与调用](模型下载与调用.md)。
+
+维护者重新打包时使用：
 
 ```bash
 python scripts/package.py --only weights
+python scripts/package.py --verify dist/laya-pbz-v1-weights.zip
 ```
 
-输出为 `dist/laya-pbz-v1-weights.zip`。将压缩包中的 `laya-pbz-v1/` 目录解压到
-`artifacts/ckpt/`，补齐权重及 tokenizer 文件后，可通过 `pbz info` 检查。
-GitHub Release 或模型托管平台的上传应单独安排；本次代码推送不会自动上传权重。
+产物为 `dist/laya-pbz-v1-weights.zip` 和同名 `.zip.sha256` 文件。打包器只收集固定检查点的 8 个文件、许可、模型卡和两份操作文档，排除训练数据、快照及其他模型；生成完整 SHA-256 与逐文件 `manifest.json`，打包结束后自动复核。
+
+发布时先将已测试的代码提交推送，再用新版本标签创建草稿 Release：
+
+```bash
+gh release create <新版本标签> --repo WanKun824/pbz-comment-insight --target <完整提交SHA> --draft --title "laya-pbz-v1 权重" --notes-file <发布说明文件>
+gh release upload <新版本标签> dist/laya-pbz-v1-weights.zip dist/laya-pbz-v1-weights.zip.sha256 --repo WanKun824/pbz-comment-insight
+gh release view <新版本标签> --repo WanKun824/pbz-comment-insight
+gh release edit <新版本标签> --repo WanKun824/pbz-comment-insight --draft=false
+```
+
+每次新发布应同步文档中的固定版本下载链接，核对 Release 附件大小和 SHA-256，并实际解压运行示例。已有发布使用独立标签保留，不覆盖其附件。`full.zip` 含本地评论数据，仅用于内部复现，不作为公开 Release 附件。
 
 ## 文档入口
 
 - [README](../README.md)：安装、命令、结果和限制。
+- [模型下载与调用](模型下载与调用.md)：Release 附件下载、完整性校验、环境安装、单条与批量推理。
 - [两级中文标签](两级中文标签.md)：完整中文标签对照、输出字段、旧预测迁移和模型兼容。
 - [模型卡](MODEL_CARD.md)：训练方式、指标、偏差和适用范围。
 - [标签体系设计](标签体系_v2.md)：历史设计依据与原始训练计划。

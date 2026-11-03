@@ -135,8 +135,10 @@ def cmd_info(cfg) -> None:
                     f'  {sum(os.path.getsize(os.path.join(r, f)) for r, _, fs in os.walk(p) for f in fs) / 1e6:.0f} MB')
         print(f'  [{"x" if ok else " "}] {label:<15}{size}')
     if not os.path.exists(os.path.join(ckpt, 'model.safetensors')):
-        print(f'\n  → 缺权重：解压 laya-pbz-v1-weights.zip 到 {os.path.relpath(ckpt, cfg.root)}/\n'
-              '    或 `pbz train` 自己练一个（~1 小时）。光跑 `pbz aggregate` 不需要权重。')
+        print('\n  → 下载权重：https://github.com/WanKun824/pbz-comment-insight/releases/tag/v1.0.0\n'
+              f'    将 laya-pbz-v1-weights.zip 解压到 {os.path.relpath(os.path.dirname(ckpt), cfg.root)}/'
+              '（包内已包含 laya-pbz-v1/ 目录）。\n'
+              '    完整步骤见 docs/模型下载与调用.md。也可用 `pbz train` 自行训练。')
 
 
 def main(argv: list[str] | None = None) -> int:

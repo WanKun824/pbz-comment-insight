@@ -43,7 +43,9 @@ pbz dashboard --open      # 生成并用默认浏览器打开
 ## 快速开始
 
 只查看结果：克隆后直接打开 [`artifacts/report/dashboard.html`](artifacts/report/dashboard.html)，无需 Python 或 GPU。
-公开 Git 仓库不含评论、训练 JSONL、预测 parquet 和模型权重；需按 [`data/README.md`](data/README.md) 准备数据，权重可自行训练或单独获取。
+公开 Git 仓库不含评论、训练 JSONL 和预测 parquet；数据准备见 [`data/README.md`](data/README.md)。
+**训练好的完整检查点已通过 [GitHub Release v1.0.0](https://github.com/WanKun824/pbz-comment-insight/releases/tag/v1.0.0) 单独分发**，无需重新训练。
+权重包约 600 MB，下载、校验、解压、单条调用及批量推理见 [模型下载与调用](docs/模型下载与调用.md)。
 
 ```bash
 pip install -e .          # 装包与依赖（laya / torch / transformers>=5 …）
@@ -80,6 +82,25 @@ pbz dashboard             # 刷新自包含中文看板
 
 ---
 
+## 下载训练好的模型
+
+- [完整权重包](https://github.com/WanKun824/pbz-comment-insight/releases/download/v1.0.0/laya-pbz-v1-weights.zip)
+- [SHA-256 校验文件](https://github.com/WanKun824/pbz-comment-insight/releases/download/v1.0.0/laya-pbz-v1-weights.zip.sha256)
+- [详细操作文档](docs/模型下载与调用.md)
+
+在项目根目录执行（下载命令需要 GitHub CLI，也可以通过上面的链接用浏览器下载两个文件到 `dist/`）：
+
+```bash
+gh release download v1.0.0 --repo WanKun824/pbz-comment-insight --pattern "laya-pbz-v1-weights.zip*" --dir dist
+python scripts/package.py --verify dist/laya-pbz-v1-weights.zip
+python -m zipfile -e dist/laya-pbz-v1-weights.zip artifacts/ckpt
+python -m pip install -e . "laya==0.4.21" "transformers==5.3.0"
+python examples/predict_comment.py --device cpu --comment "着色器编译等待很久，进游戏后经常掉帧，希望后续能修复这些性能问题。"
+```
+
+解压目标是 `artifacts/ckpt`，包里已经包含 `laya-pbz-v1/` 目录。单条示例不依赖本地原始评论；有 NVIDIA GPU 时可使用 `--device cuda`。
+完整包已在 Python 3.11、Laya 0.4.21、transformers 5.3.0、PyTorch 2.5.1 环境下通过 CPU 与 GPU 的真实离线推理验证。
+
 ## 目录
 
 ```
@@ -101,6 +122,7 @@ pbz-comment-insight/
 │   └── cli.py                  `pbz` 命令
 ├── taxonomy/labels_v2.json     标签体系（含 render 方案与实测数字）
 ├── docs/
+│   ├── 模型下载与调用.md       Release 下载、校验、安装、单条与批量推理
 │   ├── 两级中文标签.md         8+67 完整中文对照、输出格式、迁移与模型兼容
 │   ├── 标签体系_v2.md          体系设计、旧体系诊断、迁移表
 │   ├── 训练实录.md             每个阶段的真实数字与踩过的坑

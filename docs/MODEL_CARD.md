@@ -13,6 +13,21 @@
 | 硬件/耗时 | RTX 3060 12G，**60.8 分钟**（1,164 次优化更新） |
 | 加载 | `laya.load("artifacts/ckpt/laya-pbz-v1")` |
 | 许可 | Apache-2.0（随基座） |
+| 权重下载 | [Release v1.0.0](https://github.com/WanKun824/pbz-comment-insight/releases/tag/v1.0.0)，完整检查点及 SHA-256 |
+
+## 下载与调用
+
+操作步骤见 [模型下载与调用](模型下载与调用.md)：下载约 600 MB 的权重包和校验文件，
+运行 `python scripts/package.py --verify dist/laya-pbz-v1-weights.zip`，再解压到 `artifacts/ckpt/`。
+包内已包含 tokenizer、编码器配置和权重，完整目录可离线加载。
+
+```bash
+python examples/predict_comment.py --device cpu --comment "着色器编译等待很久，进游戏后经常掉帧，希望后续能修复这些性能问题。"
+```
+
+本次分发验证使用 Python 3.11、Laya 0.4.21、transformers 5.3.0、PyTorch 2.5.1+cu121，
+已分别在 CPU 和 NVIDIA RTX 4060 Laptop GPU 上完成真实离线两级推理。
+这是分发与调用验证，不是重新训练或重新测量准确率。
 
 ## 训练配置
 

@@ -27,7 +27,7 @@ jobs:
         run: python -m pytest tests/ -q
 
       - name: 代码风格
-        run: ruff check src tests scripts
+        run: ruff check src tests scripts examples
 
       - name: 隐私门禁（仓库里不得出现评论原文 / 昵称 / UID）
         run: python scripts/check_public_files.py
