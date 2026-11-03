@@ -1,0 +1,414 @@
+{
+  "meta": {
+    "version": "2.0",
+    "game": "影之刃零 / Phantom Blade Zero",
+    "game_type": "单机买断制动作游戏（非手游、无抽卡/排位/服务器经济）",
+    "source": "B站 7 个视频 9,696 条评论（2026-10-22 ~ 2026-11-02）",
+    "engine": "laya / laya-multilingual（中文走 multilingual 检查点）",
+    "render": {
+    "key_style": "opaque",
+    "prefix_cn": true,
+    "rationale": "诊断实测（400 条分层样本，4+3 个变体）：坍缩主因是模型读英文语义键的字面，而非中文 criteria（README 已警告 keys are rendered verbatim）。换不透明键 O1..On 改变 42-59% 的答案且 collapse 大降（topic_l1 0.712→0.320）；而 option_order 满轮转只改 13-31% 且 collapse 无改善，成本却是 11.5 倍。故：不透明键 + criteria 前置中文类名，轮转默认关闭。",
+    "measured": {
+      "A_语义键_无轮转":   {"topic_l1_collapse": 0.712, "topic_l1_entropy": 0.508, "rows_per_item": 14},
+      "B_语义键_满轮转":   {"topic_l1_collapse": 0.730, "topic_l1_entropy": 0.499, "rows_per_item": 40, "flip_vs_A": "17.2%"},
+      "D_不透明键_原描述": {"topic_l1_collapse": 0.355, "topic_l1_entropy": 0.792, "rows_per_item": 14, "flip_vs_A": "52.5%"},
+      "E_不透明键_中文前缀": {"topic_l1_collapse": 0.320, "topic_l1_entropy": 0.871, "valid_entropy": 0.962, "rows_per_item": 14, "status": "采用"},
+      "G_中文键_中文前缀":  {"topic_l1_collapse": 0.320, "speech_act_collapse": 0.742, "status": "speech_act 严重坍缩，弃用"}
+    }
+  },
+
+  "cn_names": {
+    "valid": {"substantive": "有实质内容", "banter": "玩梗互动", "fragment": "碎片无法判断", "spam": "广告垃圾"},
+    "topic_l1": {"combat": "战斗", "content": "内容品质", "tech": "技术性能", "business": "商业产品",
+                 "industry": "行业生态", "creator": "视频与UP主", "community": "社区舆论", "player": "玩家自述"},
+    "sentiment": {"very_neg": "极度负面", "neg": "偏负面", "neutral": "中立", "pos": "偏正面", "very_pos": "极度正面"},
+    "target": {"game": "游戏本体", "dev": "开发团队", "publisher": "发行渠道", "creator": "UP主视频",
+               "other_player": "其他玩家", "other_game": "其他游戏行业", "none": "无对象"},
+    "speech_act": {"review": "下评价", "report": "报问题", "question": "提问", "suggest": "提建议",
+                   "share": "讲经历", "joke": "玩梗", "argue": "争论"},
+    "compare_ref": {"blackmyth": "黑神话", "onimusha": "鬼武者卡普空", "souls": "魂系只狼",
+                    "domestic": "其他国产", "action_classic": "经典动作游戏", "mobile": "手游二游", "other": "其他"}
+  },
+
+  "design_rules": [
+      "一个问题只问一件事：主题、情感、对象、言语行为、二分标记互相正交",
+      "单个 choice 选项数 ≤ 12（Laya 超 20 断崖式下跌）",
+      "中文禁用 noul（官方 zh 基准会退化成常数 true），二分维度一律用两选项 choice",
+      "情感禁用 score（最弱原语 + multilingual 位置偏置），用 5 档 choice",
+      "所有 choice 用 option_order 做 k 次轮转平均，k 个轮转放同一次前向",
+      "criteria 必须写判定要点，只给标签名准确率明显更低",
+      "选项键必须不透明（O1..On），语义名放进 criteria 描述——英文语义键会劫持答案",
+      "option_order 轮转实测无收益且贵 11.5 倍，默认关闭",
+      "建议 head_max_len=320, max_len=768（state P95 仅 280 字）",
+      "零样本已证不可用（sentiment 在所有变体上都把 64-76% 判为负面，而本批数据明显偏正）——必须微调"
+    ]
+  },
+
+  "state_template": {
+    "comment": "评论正文",
+    "video": "视频标题（提供游戏/话题上下文）",
+    "parent": "父评论正文（楼中楼占 47.7%，缺父评论则 35.8% 的评论无法判主题）",
+    "note": "必须三者拼接送入；楼中楼靠 _cache/*.json 的 root/parent 字段还原，不能用 CSV 里被科学计数法破坏的 rpid"
+  },
+
+  "pass1": {
+    "state_key": "comment",
+    "questions": {
+      "valid": {
+        "type": "choice",
+        "instructions": "这条游戏视频评论属于哪种类型？",
+        "criteria": {
+          "substantive": "有实质观点、体验描述、信息或问题反馈",
+          "banter": "玩梗、调侃、接龙、情绪互动，无实质观点",
+          "fragment": "过短或脱离上下文无法判断，纯表情、单词、附和",
+          "spam": "广告、引流、诈骗、与游戏和视频完全无关"
+        },
+        "option_order_rotate": true,
+        "gate": "fragment/spam 不再进入后续主题问题"
+      },
+
+      "topic_l1": {
+        "type": "choice",
+        "instructions": "这条评论主要在讨论哪一类话题？",
+        "criteria": {
+          "combat": "战斗手感、招式连段、拼刀格挡、难度、BOSS",
+          "content": "剧情叙事、角色、美术、音乐、关卡地图、流程内容量",
+          "tech": "帧数优化、配置驱动、崩溃BUG、手柄外设、平台适配",
+          "business": "定价性价比、销量、买不买、版本周边、宣发预告",
+          "industry": "国产3A意义、与其他游戏对比、媒体评分、审核政策",
+          "creator": "这个视频和UP主本身：解说、剪辑、催更、攻略价值",
+          "community": "舆论节奏、黑子水军、热梗段子、玩家社群与争论",
+          "player": "玩家个人经历与情绪：买了通关了、请假、感动、本命"
+        },
+        "option_order_rotate": true
+      },
+
+      "sentiment": {
+        "type": "choice",
+        "instructions": "这条评论对其评价对象的整体态度是？",
+        "criteria": {
+          "very_neg": "强烈不满、劝退、辱骂、宣布退款",
+          "neg": "明确批评、失望、吐槽具体缺点",
+          "neutral": "客观陈述、提问、转述事实，不带褒贬",
+          "pos": "明确肯定、满意、推荐",
+          "very_pos": "极度赞赏、年度最佳、封神、强烈安利"
+        },
+        "option_order_rotate": true,
+        "note": "替换旧体系的正面/中性/负面三档 + 34-87 连续分；旧标注 70% 落在中性，无区分度"
+      },
+
+      "is_mixed": {
+        "type": "choice",
+        "instructions": "这条评论是否同时明确说了优点和缺点？",
+        "criteria": {
+          "A": "是，褒贬并存，先夸后批或先批后夸",
+          "B": "否，只有一个方向或没有评价"
+        },
+        "note": "数据里 9.8% 的长评基本都是『瑕不掩瑜』式混合评价，三档情感会把它们误压成中性"
+      },
+
+      "target": {
+        "type": "choice",
+        "instructions": "这条评论在评价谁？",
+        "criteria": {
+          "game": "影之刃零这款游戏本体",
+          "dev": "开发团队、制作人梁其伟、灵游坊",
+          "publisher": "发行、渠道、Steam/WeGame、售后客服",
+          "creator": "这个视频的UP主或视频内容",
+          "other_player": "其他玩家、评论区、弹幕、某个具体网友",
+          "other_game": "其他游戏、厂商或整个行业",
+          "none": "没有明确评价对象"
+        },
+        "option_order_rotate": true
+      },
+
+      "speech_act": {
+        "type": "choice",
+        "instructions": "这条评论在做什么？",
+        "criteria": {
+          "review": "下评价、给判断、表态好坏",
+          "report": "反馈具体问题、报BUG、描述故障",
+          "question": "提问、求助、求攻略、询问配置",
+          "suggest": "提建议、提诉求、希望改成什么样",
+          "share": "分享自己的经历、战绩、感受",
+          "joke": "玩梗、接段子、整活、调侃",
+          "argue": "反驳、争论、回应他人观点"
+        },
+        "option_order_rotate": true
+      },
+
+      "has_issue": {
+        "type": "choice",
+        "instructions": "这条评论是否提到了可以立案跟进的具体问题（性能、BUG、适配、设计缺陷）？",
+        "criteria": {
+          "A": "是，能定位到具体问题",
+          "B": "否，没有或只是笼统抱怨"
+        }
+      },
+
+      "purchase_intent": {
+        "type": "choice",
+        "instructions": "这条评论是否表达了购买或开始玩的意向？",
+        "criteria": {
+          "A": "是，想买、要入、已预购、准备开玩",
+          "B": "否，或只是观望、不买、已退款"
+        }
+      },
+
+      "churn_signal": {
+        "type": "choice",
+        "instructions": "这条评论是否表达了不买、劝退、退款或弃玩？",
+        "criteria": {
+          "A": "是，明确不买、劝别人别买、退款、玩不下去",
+          "B": "否"
+        }
+      },
+
+      "is_spoiler": {
+        "type": "choice",
+        "instructions": "这条评论是否泄露了剧情、结局、BOSS或关键转折？",
+        "criteria": {
+          "A": "是，含剧情或BOSS泄露",
+          "B": "否"
+        }
+      },
+
+      "is_toxic": {
+        "type": "choice",
+        "instructions": "这条评论是否包含辱骂、人身攻击或刻意引战？",
+        "criteria": {
+          "A": "是，有辱骂、攻击或引战挑拨",
+          "B": "否，正常批评和吐槽不算"
+        }
+      },
+
+      "is_sarcasm": {
+        "type": "choice",
+        "instructions": "这条评论是否在反讽、阴阳怪气，字面意思与真实态度相反？",
+        "criteria": {
+          "A": "是，反讽或阴阳",
+          "B": "否，字面即本意"
+        },
+        "note": "零样本必崩，官方 #377 已证否定/反讽失败；必须靠微调，是本项目最需要人工标注的维度"
+      },
+
+      "is_actionable": {
+        "type": "choice",
+        "instructions": "这条评论是否给出了可执行的改进建议？",
+        "criteria": {
+          "A": "是，说清了希望怎么改",
+          "B": "否，只有情绪或结论"
+        }
+      },
+
+      "mentions_other_game": {
+        "type": "choice",
+        "instructions": "这条评论是否提到了除影之刃零以外的其他游戏？",
+        "criteria": {
+          "A": "是，提到了别的游戏或厂商",
+          "B": "否"
+        }
+      }
+    }
+  },
+
+  "pass2_by_l1": {
+    "combat": {
+      "topic_l2": {
+        "type": "choice",
+        "instructions": "这条评论在战斗方面具体讨论什么？",
+        "criteria": {
+          "feel": "手感、打击感、动作反馈、轻飘或扎实",
+          "parry": "拼刀、精防、弹反、格挡、架势条",
+          "moveset": "招式、连段、武器、流派、Build、轮椅打法",
+          "difficulty": "难度高低、难度曲线、劝退、最高难度",
+          "boss": "具体BOSS战、叶师傅、鬼新娘、卡关",
+          "enemy": "小怪、杂兵组合、地形配合、敌人AI",
+          "control": "按键布局、操作复杂度、取消后摇、手感延迟",
+          "spectacle": "处决、演出、特效、战斗观感帅气",
+          "genre": "是不是类魂、是不是动作游戏、品类归属之争"
+        },
+        "option_order_rotate": true
+      }
+    },
+
+    "content": {
+      "topic_l2": {
+        "type": "choice",
+        "instructions": "这条评论在游戏内容方面具体讨论什么？",
+        "criteria": {
+          "story": "主线剧情、故事、结局、伏笔",
+          "worldview": "世界观、设定、武侠味、仙侠化争议",
+          "character": "角色人设、塑造、左殇、冷荼、配角",
+          "script": "台词、文本、中二、俗套、文案水平",
+          "art": "美术风格、画面、建模、光影、服装设计",
+          "audio": "音乐BGM、音效、配音、声优",
+          "level": "关卡设计、地图、箱庭、探索、隐藏要素、捷径",
+          "prologue": "序章质量、开场、前期节奏、第一印象",
+          "volume": "流程时长、内容量、二周目、重复度",
+          "update": "后续更新、DLC、新模式、续作内容"
+        },
+        "option_order_rotate": true
+      }
+    },
+
+    "tech": {
+      "topic_l2": {
+        "type": "choice",
+        "instructions": "这条评论在技术方面具体讨论什么？",
+        "criteria": {
+          "fps": "帧数、卡顿、掉帧、流畅度、锁帧",
+          "hardware": "配置要求、显卡、驱动、显存、能不能跑",
+          "shader": "着色器编译、首次加载、预编译卡住",
+          "crash": "崩溃、闪退、黑屏、卡死、死机",
+          "graphics_opt": "画质选项、光追光线重构、DLSS、分辨率",
+          "bug": "功能性BUG、任务卡住、穿模、数值异常",
+          "controller": "手柄、键位、键鼠、Xbox/PS手柄适配、震动",
+          "platform": "PS5、主机、掌机、云游戏、移植与平台差异",
+          "save": "存档、成就、奖杯、进度与数据"
+        },
+        "option_order_rotate": true
+      }
+    },
+
+    "business": {
+      "topic_l2": {
+        "type": "choice",
+        "instructions": "这条评论在商业与产品方面具体讨论什么？",
+        "criteria": {
+          "price": "定价、贵不贵、性价比、折扣、区域定价",
+          "sales": "销量、在线人数、市场表现、破多少万",
+          "buy_decision": "买不买、观望、等优化、等打折、首发入",
+          "edition": "标准版豪华版、典藏、实体盘、版本差异",
+          "merch": "周边、手办、光盘、签名、联名商品",
+          "refund": "退款、售后、客服、维权",
+          "channel": "Steam、WeGame、Epic、主机商店、渠道差异",
+          "marketing": "宣发、预告片、演示与实机差距、营销节奏"
+        },
+        "option_order_rotate": true
+      }
+    },
+
+    "industry": {
+      "topic_l2": {
+        "type": "choice",
+        "instructions": "这条评论在行业层面具体讨论什么？",
+        "criteria": {
+          "domestic_3a": "国产3A意义、国单赛道、试金石、行业信标",
+          "vs_blackmyth": "与黑神话悟空、冯骥的对比",
+          "vs_japanese": "与鬼武者、卡普空、只狼、魂系的对比",
+          "vs_domestic": "与明末、燕云、其他国产作品的对比",
+          "media_score": "媒体评分、IGN、M站、开分、奖项TGA",
+          "policy": "审核、过审、改名、版号、政策与和谐",
+          "ecosystem": "资本、厂商生态、手游转单机、人才与成本"
+        },
+        "option_order_rotate": true
+      }
+    },
+
+    "creator": {
+      "topic_l2": {
+        "type": "choice",
+        "instructions": "这条评论在视频与UP主方面具体讨论什么？",
+        "criteria": {
+          "commentary": "解说观点、是否中肯、评分标准、嘴替",
+          "production": "剪辑、节奏、画质、字幕、时长",
+          "persona": "UP主本人、身体健康、腰、人格、声音",
+          "update_beg": "催更、什么时候更、坐等下期",
+          "guide_value": "攻略教学价值、无伤、打法示范",
+          "stance": "恰饭、广告、立场偏向、客观性质疑",
+          "comment_area": "弹幕、评论区氛围、置顶、盖楼",
+          "suggestion": "选题建议、点播、希望做什么内容"
+        },
+        "option_order_rotate": true
+      }
+    },
+
+    "community": {
+      "topic_l2": {
+        "type": "choice",
+        "instructions": "这条评论在社区舆论方面具体讨论什么？",
+        "criteria": {
+          "discourse": "舆论节奏、对立、带节奏、讨论环境",
+          "accuse": "黑子、水军、恰钱、玻璃心指控",
+          "meme": "热梗、段子、接龙、整活、全体起立",
+          "pun_meme": "谐音梗与审核梗：影之诗、和平精影、管制刀具",
+          "dev_meme": "制作人梗：梁博基尼、女装、销量女装",
+          "circle": "玩家社群、混圈、粉丝群体、二游玩家",
+          "quarrel": "玩家之间具体争论、杠、反驳、吵架",
+          "heat": "热度、出圈、讨论度、为什么不火"
+        },
+        "option_order_rotate": true
+      }
+    },
+
+    "player": {
+      "topic_l2": {
+        "type": "choice",
+        "instructions": "这条评论在个人经历方面具体讲什么？",
+        "criteria": {
+          "bought": "我买了、入手了、预购了、准备开玩",
+          "progress": "通关了、打到第几章、战绩、无伤、时长",
+          "time_conflict": "请假、上课、上班、没时间、等下班",
+          "emotion": "感动、泪目、情怀、青春、二十年老粉",
+          "goty": "我的年度最佳、玩过最帅、个人总评",
+          "favorite": "本命角色、喜欢的武器流派、老婆",
+          "identity": "身份宣告：云玩家、第二款3A、老玩家、等等党",
+          "health": "玩到手疼、晕3D、熬夜、身体代价"
+        },
+        "option_order_rotate": true
+      }
+    }
+  },
+
+  "pass3_optional": {
+    "compare_ref": {
+      "when": "mentions_other_game == A",
+      "type": "choice",
+      "instructions": "这条评论主要拿哪款游戏或厂商来对比？",
+      "criteria": {
+        "blackmyth": "黑神话悟空",
+        "onimusha": "鬼武者、卡普空作品",
+        "souls": "只狼、魂系、老头环、宫崎英高",
+        "domestic": "明末、燕云十六声等其他国产",
+        "action_classic": "鬼泣、猎天使魔女、忍龙等经典动作",
+        "mobile": "手游、二游、影之刃手游前作",
+        "other": "以上都不是"
+      },
+      "option_order_rotate": true
+    }
+  },
+
+  "legacy_mapping": {
+    "note": "旧 50 条标注 → v2 的迁移表，逗号后是旧标注被拆进的正交维度",
+    "游戏行业评价": "topic_l1=industry, l2=domestic_3a|ecosystem",
+    "游行行业": "同上（错别字，合并）",
+    "游戏对比": "topic_l1=industry, l2=vs_*，并置 mentions_other_game=A",
+    "游戏评分": "topic_l1=industry, l2=media_score",
+    "游戏热度": "topic_l1=community, l2=heat",
+    "宣发评价": "topic_l1=business, l2=marketing",
+    "性能优化": "topic_l1=tech, l2=fps|hardware|graphics_opt",
+    "游戏适配": "topic_l1=tech, l2=controller|platform",
+    "游戏适配问题": "同上（合并），并置 has_issue=A",
+    "游戏手感": "topic_l1=combat, l2=feel|parry",
+    "游戏玩法": "topic_l1=combat, l2=moveset|control",
+    "玩法评价": "同上（合并）",
+    "游戏关卡讨论": "topic_l1=content, l2=level",
+    "剧情评价": "topic_l1=content, l2=story|worldview|script",
+    "剧情解析": "同上（合并），speech_act=share|review",
+    "游戏周边": "topic_l1=business, l2=merch|edition",
+    "开发者互动": "target=dev, topic_l1=community, l2=dev_meme",
+    "制作人互动": "同上（合并）",
+    "调侃制作组": "同上（合并），speech_act=joke",
+    "游戏热梗": "topic_l1=community, l2=meme|pun_meme, speech_act=joke, valid=banter",
+    "同类游戏欢乐互动": "topic_l1=community, l2=meme, mentions_other_game=A, valid=banter",
+    "游戏博主互动": "target=creator, topic_l1=creator, l2=persona|update_beg",
+    "玩家社群": "topic_l1=community, l2=circle",
+    "玩家互动": "target=other_player, speech_act=argue|joke",
+    "玩家间互动": "同上（合并）",
+    "玩家故事": "topic_l1=player, l2=emotion|goty",
+    "期待游戏发布": "purchase_intent=A, topic_l1=player, l2=bought|time_conflict",
+    "垃圾信息与主题无关": "valid=spam"
+  }
+}

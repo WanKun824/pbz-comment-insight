@@ -1,0 +1,47 @@
+name: ci
+
+on:
+  push: { branches: [main] }
+  pull_request: { branches: [main] }
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.10', '3.12']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+
+      # 冒烟测试不需要 torch / laya —— 它只验证配置、体系、键渲染、规则回归
+      - name: 安装最小依赖
+        run: pip install pandas numpy pyarrow tabulate PyYAML pytest ruff
+
+      - name: 冒烟测试（含 7 条历史 bug 回归）
+        run: python -m pytest tests/ -q
+
+      - name: 代码风格
+        run: ruff check src tests scripts
+
+      - name: 标签体系自检
+        run: |
+          python - <<'PY'
+          import json
+          sc = json.load(open('taxonomy/labels_v2.json', encoding='utf-8'))
+          p1 = sc['pass1']['questions']
+          assert len(p1) == 14, f'Pass1 应有 14 维度，实际 {len(p1)}'
+          assert len(sc['pass2_by_l1']) == 8
+          n2 = sum(len(v['topic_l2']['criteria']) for v in sc['pass2_by_l1'].values())
+          assert n2 == 67, f'Pass2 应有 67 个二级主题，实际 {n2}'
+          for name, q in p1.items():
+              assert q['type'] == 'choice', f'{name}: 中文禁用 noul'
+              k = len(q['criteria'])
+              assert k <= 12, f'{name}: {k} 个选项，超过 Laya 可用区间'
+          print(f'ok  Pass1 {len(p1)} 维度 · Pass2 {len(sc["pass2_by_l1"])} 分支 / {n2} 主题')
+          PY

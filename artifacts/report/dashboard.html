@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>影之刃零 评论决策模型 · 训练看板</title>
+<style>
+*{box-sizing:border-box}
+:root{
+ --bg:#0d1117;--bg2:#161b22;--bg3:#1c2230;--fg:#e6edf3;--mut:#8b949e;--bd:#30363d;
+ --ac:#58a6ff;--good:#3fb950;--warn:#d29922;--bad:#f85149;--mute:#6e7681;
+}
+@media(prefers-color-scheme:light){:root{
+ --bg:#fff;--bg2:#f6f8fa;--bg3:#eef1f5;--fg:#1f2328;--mut:#656d76;--bd:#d0d7de;
+ --ac:#0969da;--good:#1a7f37;--warn:#9a6700;--bad:#cf222e;--mute:#8c959f;}}
+body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.6 -apple-system,"Segoe UI",
+ "PingFang SC","Microsoft YaHei",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 20px 80px}
+header{border-bottom:1px solid var(--bd);padding-bottom:18px;margin-bottom:26px}
+h1{font-size:25px;margin:0 0 6px;letter-spacing:-.3px}
+h1 small{font-weight:400;color:var(--mut);font-size:14px;letter-spacing:0}
+.sub{color:var(--mut);font-size:13px}
+.sub code{background:var(--bg2);padding:1px 5px;border-radius:4px;font-size:12px}
+section{margin:36px 0}
+h2{font-size:18px;margin:0 0 4px;display:flex;align-items:center;gap:10px}
+.num{display:inline-grid;place-items:center;width:25px;height:25px;border-radius:7px;
+ background:var(--bg3);color:var(--ac);font-size:12px;font-weight:700;flex:none}
+h3{font-size:13px;margin:20px 0 8px;color:var(--mut);font-weight:600;
+ text-transform:uppercase;letter-spacing:.6px}
+.note{color:var(--mut);font-size:12.5px;margin:7px 0 0}
+.note code,.finding code,.sd code{background:var(--bg2);padding:1px 5px;border-radius:4px;font-size:12px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:26px}
+@media(max-width:860px){.g2{grid-template-columns:1fr}}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(176px,1fr));gap:12px}
+.card{background:var(--bg2);border:1px solid var(--bd);border-radius:11px;padding:13px 15px}
+.card.good{border-color:color-mix(in srgb,var(--good) 45%,var(--bd))}
+.card .k{color:var(--mut);font-size:11.5px;text-transform:uppercase;letter-spacing:.5px}
+.card .v{font-size:21px;font-weight:700;margin:4px 0 2px;letter-spacing:-.4px}
+.card .v small{font-size:13px;font-weight:500;color:var(--mut)}
+.card .v b{color:var(--good)}
+.card .s{color:var(--mut);font-size:11.5px}
+.bars{display:flex;flex-direction:column;gap:5px}
+.bar{display:grid;grid-template-columns:168px 1fr 74px auto;align-items:center;gap:9px;font-size:12.5px}
+.bl{color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bt{background:var(--bg3);border-radius:4px;height:15px;overflow:hidden}
+.bt i{display:block;height:100%;min-width:2px;background:var(--ac);border-radius:4px}
+.bt i.good{background:var(--good)}.bt i.warn{background:var(--warn)}
+.bt i.bad{background:var(--bad)}.bt i.mute{background:var(--mute)}
+.bv{font-variant-numeric:tabular-nums;text-align:right;color:var(--fg);font-weight:600}
+.bn{color:var(--mut);font-size:11.5px;white-space:nowrap}
+.legend{display:flex;gap:16px;margin-bottom:9px;font-size:12px;color:var(--mut);flex-wrap:wrap}
+.lg i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px;background:var(--ac)}
+.lg.good i{background:var(--good)}.lg.warn i{background:var(--warn)}.lg.mute i{background:var(--mute)}
+.gbars{display:flex;flex-direction:column;gap:9px}
+.gbar{display:grid;grid-template-columns:168px 1fr;gap:9px;align-items:center;font-size:12.5px}
+.gl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gs{display:flex;flex-direction:column;gap:2px}
+.gt{display:grid;grid-template-columns:minmax(24px,1fr) 50px;align-items:center;gap:7px;
+ background:var(--bg3);border-radius:3px}
+.gt i{display:block;height:11px;min-width:2px;border-radius:3px;background:var(--ac)}
+.gt i.good{background:var(--good)}.gt i.warn{background:var(--warn)}
+.gt i.bad{background:var(--bad)}.gt i.mute{background:var(--mute)}
+.gt b{font-size:11px;font-variant-numeric:tabular-nums;color:var(--mut);font-weight:600}
+.spark{width:100%;height:auto;margin-top:4px}
+.spark .ln{fill:none;stroke:var(--ac);stroke-width:2;stroke-linejoin:round}
+.spark .ar{fill:var(--ac);opacity:.11}
+.spark circle{fill:var(--ac)}
+.spark .pt{fill:var(--fg);font-size:10.5px;text-anchor:middle;font-weight:600}
+.spark .ax{fill:var(--mut);font-size:10px;text-anchor:middle}
+.spark .gr{stroke:var(--bd);stroke-width:1}
+.tw{overflow-x:auto;border:1px solid var(--bd);border-radius:9px;margin-top:6px}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
+th,td{padding:7px 11px;text-align:right;border-bottom:1px solid var(--bd);white-space:nowrap}
+th{background:var(--bg2);color:var(--mut);font-weight:600;font-size:11.5px;
+ text-transform:uppercase;letter-spacing:.4px;position:sticky;top:0}
+th:first-child,td:first-child{text-align:left}
+tbody tr:last-child td{border-bottom:none}
+tbody tr:hover{background:var(--bg2)}
+td.good{color:var(--good);font-weight:600}td.warn{color:var(--warn)}td.bad{color:var(--bad);font-weight:600}
+.hms{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:22px}
+.hm-wrap{min-width:0}
+.hm-t{font-size:12px;color:var(--mut);margin-bottom:6px;font-weight:600;font-family:ui-monospace,monospace}
+.hm{display:grid;gap:2px;font-size:10.5px}
+.hh,.hr{color:var(--mut);font-size:10px;padding:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hh{text-align:center}.hr{text-align:right;padding-right:6px}
+.hc{display:grid;place-items:center;aspect-ratio:1.5;border-radius:3px;
+ background:color-mix(in srgb,var(--ac) calc(var(--a)*88%),var(--bg2));
+ color:var(--fg);font-variant-numeric:tabular-nums}
+.hc.dg{background:color-mix(in srgb,var(--good) calc(var(--a)*88%),var(--bg2))}
+.finding{margin:16px 0 0;padding:12px 15px;border-radius:9px;background:var(--bg2);
+ border-left:3px solid var(--ac);font-size:13px}
+.finding.warn{border-left-color:var(--warn)}
+.finding.bad{border-left-color:var(--bad)}
+.finding ul{margin:7px 0 0;padding-left:20px;color:var(--mut);font-size:12.5px}
+.flow{list-style:none;padding:0;margin:0;display:grid;
+ grid-template-columns:repeat(auto-fit,minmax(255px,1fr));gap:9px}
+.flow li{background:var(--bg2);border:1px solid var(--bd);border-radius:9px;padding:11px 13px;
+ display:grid;grid-template-columns:auto 1fr;gap:4px 10px;align-items:center}
+.st{display:inline-grid;place-items:center;min-width:23px;height:23px;padding:0 5px;border-radius:6px;
+ background:var(--bg3);color:var(--ac);font-size:11px;font-weight:700;grid-row:span 2}
+.flow code{color:var(--fg);font-weight:600;font-size:12.5px}
+.sn{color:var(--mut);font-size:11.5px;justify-self:start}
+.sd{grid-column:2;color:var(--mut);font-size:11.5px}
+.kv{display:flex;gap:18px;flex-wrap:wrap;margin-top:14px;font-size:12.5px;color:var(--mut)}
+.kv b{color:var(--fg)}
+.limits{list-style:none;padding:0;margin:0;display:flex;flex-direction:column;gap:9px}
+.limits li{background:var(--bg2);border:1px solid var(--bd);border-radius:9px;padding:11px 14px;
+ display:grid;grid-template-columns:auto 1fr;gap:3px 11px;align-items:start}
+.sev{display:inline-grid;place-items:center;width:23px;height:23px;border-radius:6px;
+ font-size:11px;font-weight:700;grid-row:span 2}
+.sev.s3{background:color-mix(in srgb,var(--bad) 22%,transparent);color:var(--bad)}
+.sev.s2{background:color-mix(in srgb,var(--warn) 22%,transparent);color:var(--warn)}
+.sev.s1{background:var(--bg3);color:var(--mut)}
+.limits b{font-size:13px}
+.limits p{margin:0;color:var(--mut);font-size:12.5px;grid-column:2}
+.nav{position:sticky;top:0;z-index:9;background:color-mix(in srgb,var(--bg) 88%,transparent);
+ backdrop-filter:blur(12px);border-bottom:1px solid var(--bd);margin:0 -20px 26px;padding:9px 20px;
+ display:flex;gap:4px;overflow-x:auto;scrollbar-width:none}
+.nav::-webkit-scrollbar{display:none}
+.nav a{color:var(--mut);text-decoration:none;font-size:12px;padding:4px 9px;border-radius:6px;
+ white-space:nowrap;transition:.12s}
+.nav a:hover{background:var(--bg3);color:var(--fg)}
+footer{margin-top:52px;padding-top:18px;border-top:1px solid var(--bd);
+ color:var(--mut);font-size:12px;display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap}
+footer a{color:var(--ac);text-decoration:none}
+@media(max-width:600px){
+ .wrap{padding:18px 13px 60px}
+ h1{font-size:20px}
+ .bar{grid-template-columns:96px 1fr auto;gap:7px;font-size:11.5px}
+ .bar .bn{display:none}
+ .gbar{grid-template-columns:96px 1fr;gap:7px;font-size:11.5px}
+ .gt{grid-template-columns:1fr 42px}
+ .flow li{grid-template-columns:auto 1fr}
+ .hms{grid-template-columns:1fr}
+ .hm{font-size:9px}.hh,.hr{font-size:8.5px}
+ .nav{margin:0 -13px 20px;padding:8px 13px}
+}
+</style></head><body><div class="wrap">
+<header>
+<h1>影之刃零 评论多维决策模型 <small>训练过程与结果看板</small></h1>
+<div class="sub"><code>laya-pbz-v1</code> · 基座 <code>laya-multilingual</code> · parallel layout · dev accuracy 0.3375 → <b>0.9251</b></div>
+<div class="sub" style="margin-top:4px">生成于 2026-11-03 17:04 CST
+ · 由 <code>pbz dashboard</code> 从产物现读生成，无硬编码数字</div>
+</header>
+<nav class="nav"><a href="#so">概览</a><a href="#s0">流水线</a><a href="#s1">数据重建</a><a href="#s2">零样本坍缩诊断</a><a href="#s3">规则弱监督</a><a href="#s4">微调</a><a href="#s5">评测（冻结 test 集）</a><a href="#s6">混淆矩阵</a><a href="#s7">业务结果</a><a href="#sx">已知限制</a></nav>
+<section id="so"><h2><span class="num">·</span>概览</h2><div class="cards"><div class="card "><div class="k">评论条数</div><div class="v">9,696</div><div class=s>7 个视频 · 楼中楼 48%</div></div><div class="card "><div class="k">标签维度</div><div class="v">14 <small>+67</small></div><div class=s>Pass1 14 正交维度 · Pass2 8 分支/67 二级主题</div></div><div class="card "><div class="k">弱标签决策</div><div class="v">49,409</div><div class=s>规则弱监督，允许弃权</div></div><div class="card good"><div class="k">dev accuracy</div><div class="v">0.338 → <b>0.9251</b></div><div class=s>+0.5876</div></div><div class="card good"><div class="k">dev ECE</div><div class="v">0.155 → <b>0.0483</b></div><div class=s>-0.1070（越低越好）</div></div><div class="card "><div class="k">训练耗时</div><div class="v">60.8 <small>min</small></div><div class=s>RTX 3060 12G · 9,289 items · 4 epochs</div></div><div class="card good"><div class="k">test 平均 accuracy</div><div class="v">0.9123</div><div class=s>12 个维度 · macro-F1 均值 0.807</div></div><div class="card "><div class="k">已打标</div><div class="v">9,696</div><div class=s>有效 6,653 条 · 135,744 次决策</div></div></div></section><section id="s0"><h2><span class="num">0</span>流水线</h2><p class=note>每个阶段都是一条可独立运行的命令，产物落盘，可从任意阶段续跑。</p><ol class="flow"><li><span class="st">0</span><code>pbz rebuild</code><span class="sn">从缓存重建</span><span class="sd">rpid 16.3%→100%，楼中楼关联 0→100%</span></li><li><span class="st">1</span><code>pbz probe</code><span class="sn">关键词探针</span><span class="sd">量化主题分布，为体系定档</span></li><li><span class="st">2</span><code>pbz diag</code><span class="sn">坍缩诊断</span><span class="sd">定位主因：标签文本劫持 ≫ 位置偏置</span></li><li><span class="st">3</span><code>pbz weak</code><span class="sn">规则弱监督</span><span class="sd">高精度优先，允许弃权</span></li><li><span class="st">3b</span><code>pbz dataset</code><span class="sn">封顶+切分</span><span class="sd">按 rpid 切分，杜绝泄漏</span></li><li><span class="st">4</span><code>pbz train</code><span class="sn">微调</span><span class="sd">parallel option layout</span></li><li><span class="st">5</span><code>pbz evaluate</code><span class="sn">冻结 test 评测</span><span class="sd">三方对照 + 覆盖率曲线</span></li><li><span class="st">6</span><code>pbz predict</code><span class="sn">全量打标</span><span class="sd">两级推理，valid 闸门</span></li><li><span class="st">7</span><code>pbz aggregate</code><span class="sn">舆情报告</span><span class="sd">主题×情感 / 时间线 / 可行动清单</span></li></ol></section><section id="s1"><h2><span class="num">1</span>数据重建</h2><p class=note>历史 CSV 的 rpid 被科学计数法摧毁（<code>321944070160 → 3.21944E+11</code>），9696 行塌成 1579 个唯一值，47.7% 的楼中楼断链。从爬虫缓存重建。</p><div class="g2"><div><h3>bug-1 修复验证</h3><div class="bars">
+<div class="bar"><span class="bl" title="旧 CSV：唯一 rpid 占比">旧 CSV：唯一 rpid 占比</span><span class="bt"><i class="bad" style="width:16.3%"></i></span><span class="bv">16.3%</span><span class="bn">1579/9696</span></div>
+<div class="bar"><span class="bl" title="新 clean：唯一 rpid 占比">新 clean：唯一 rpid 占比</span><span class="bt"><i class="good" style="width:100.0%"></i></span><span class="bv">100.0%</span><span class="bn">9696/9696</span></div>
+<div class="bar"><span class="bl" title="楼中楼成功关联父评论">楼中楼成功关联父评论</span><span class="bt"><i class="good" style="width:100.0%"></i></span><span class="bv">100.0%</span><span class="bn">4621/4621</span></div>
+</div></div><div><h3>长度分桶 × 层级</h3><div class="bars">
+<div class="bar"><span class="bl" title="L1_≤10">L1_≤10</span><span class="bt"><i class="" style="width:81.4%"></i></span><span class="bv">2,588</span><span class="bn">主楼 1236 / 楼中楼 1352</span></div>
+<div class="bar"><span class="bl" title="L2_11-25">L2_11-25</span><span class="bt"><i class="" style="width:100.0%"></i></span><span class="bv">3,181</span><span class="bn">主楼 1582 / 楼中楼 1599</span></div>
+<div class="bar"><span class="bl" title="L3_26-45">L3_26-45</span><span class="bt"><i class="" style="width:60.4%"></i></span><span class="bv">1,922</span><span class="bn">主楼 989 / 楼中楼 933</span></div>
+<div class="bar"><span class="bl" title="L4_46-79">L4_46-79</span><span class="bt"><i class="" style="width:36.0%"></i></span><span class="bv">1,146</span><span class="bn">主楼 632 / 楼中楼 514</span></div>
+<div class="bar"><span class="bl" title="L5_≥80">L5_≥80</span><span class="bt"><i class="" style="width:27.0%"></i></span><span class="bv">859</span><span class="bn">主楼 636 / 楼中楼 223</span></div>
+</div></div></div><div class="kv"><span>字数中位 <b>20</b></span><span>P90 <b>74</b></span><span>state 长度 P95 <b>280</b></span><span>纯表情 <b>1.16%</b></span></div></section><section id="s2"><h2><span class="num">2</span>零样本坍缩诊断</h2><p class=note>400 条分层样本 × 7 个变体。这一节的产出直接改变了方案。</p><div class="g2"><div><h3>topic_l1 坍缩程度</h3><div class="legend"><span class="lg bad"><i></i>collapse（越低越好）</span> <span class="lg good"><i></i>entropy（越高越好）</span></div>
+<div class="gbars">
+<div class="gbar"><span class="gl" title="A_语义键_无轮转">A_语义键_无轮转</span><span class="gs"><span class="gt"><i class="bad" style="width:81.7%"></i><b>0.712</b></span><span class="gt"><i class="good" style="width:58.3%"></i><b>0.508</b></span></span></div>
+<div class="gbar"><span class="gl" title="B_语义键_满轮转">B_语义键_满轮转</span><span class="gs"><span class="gt"><i class="bad" style="width:83.8%"></i><b>0.730</b></span><span class="gt"><i class="good" style="width:57.3%"></i><b>0.499</b></span></span></div>
+<div class="gbar"><span class="gl" title="D_不透明键_原描述">D_不透明键_原描述</span><span class="gs"><span class="gt"><i class="bad" style="width:40.8%"></i><b>0.355</b></span><span class="gt"><i class="good" style="width:90.9%"></i><b>0.792</b></span></span></div>
+<div class="gbar"><span class="gl" title="E_不透明键_中文前缀">E_不透明键_中文前缀</span><span class="gs"><span class="gt"><i class="bad" style="width:36.7%"></i><b>0.320</b></span><span class="gt"><i class="good" style="width:100.0%"></i><b>0.871</b></span></span></div>
+<div class="gbar"><span class="gl" title="G_中文键_中文前缀">G_中文键_中文前缀</span><span class="gs"><span class="gt"><i class="bad" style="width:36.7%"></i><b>0.320</b></span><span class="gt"><i class="good" style="width:0.6%"></i><b>0.000</b></span></span></div>
+</div></div><div><h3>每条评论的前向代价</h3><div class="bars">
+<div class="bar"><span class="bl" title="A_语义键_无轮转">A_语义键_无轮转</span><span class="bt"><i class="good" style="width:35.0%"></i></span><span class="bv">14 行/条</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="B_语义键_满轮转">B_语义键_满轮转</span><span class="bt"><i class="bad" style="width:100.0%"></i></span><span class="bv">40 行/条</span><span class="bn">17.2%</span></div>
+<div class="bar"><span class="bl" title="D_不透明键_原描述">D_不透明键_原描述</span><span class="bt"><i class="good" style="width:35.0%"></i></span><span class="bv">14 行/条</span><span class="bn">52.5%</span></div>
+<div class="bar"><span class="bl" title="E_不透明键_中文前缀">E_不透明键_中文前缀</span><span class="bt"><i class="good" style="width:35.0%"></i></span><span class="bv">14 行/条</span><span class="bn">采用</span></div>
+</div><p class="note">满轮转 40 行/条 = 11.5 倍成本，collapse 却没改善。</p></div></div><div class="finding"><b>结论</b>　坍缩主因是模型按<b>字面</b>读英文语义键，不是位置偏置。换不透明键 <code>O1..On</code> 把 collapse 从 0.712 压到 0.320；<code>option_order</code> 轮转关闭。</div></section><section id="s3"><h2><span class="num">3</span>规则弱监督</h2><p class=note>基座零样本已证不可用，所以<b>没有</b>拿它当伪标签 —— 那只会把 72% 的坍缩固化进去。改用高精度规则 + 弃权。</p><div class="g2"><div><h3>各维度覆盖率</h3><div class="bars">
+<div class="bar"><span class="bl" title="is_mixed">is_mixed</span><span class="bt"><i class="good" style="width:81.9%"></i></span><span class="bv">81.9%</span><span class="bn">B 7729 · A 79</span></div>
+<div class="bar"><span class="bl" title="mentions_other_game">mentions_other_game</span><span class="bt"><i class="good" style="width:78.2%"></i></span><span class="bv">78.2%</span><span class="bn">B 6080 · A 1381</span></div>
+<div class="bar"><span class="bl" title="is_toxic">is_toxic</span><span class="bt"><i class="good" style="width:63.1%"></i></span><span class="bv">63.1%</span><span class="bn">B 6003 · A 11</span></div>
+<div class="bar"><span class="bl" title="has_issue">has_issue</span><span class="bt"><i class="good" style="width:52.3%"></i></span><span class="bv">52.3%</span><span class="bn">B 4556 · A 428</span></div>
+<div class="bar"><span class="bl" title="purchase_intent">purchase_intent</span><span class="bt"><i class="good" style="width:43.5%"></i></span><span class="bv">43.5%</span><span class="bn">B 3931 · A 214</span></div>
+<div class="bar"><span class="bl" title="churn_signal">churn_signal</span><span class="bt"><i class="good" style="width:42.7%"></i></span><span class="bv">42.7%</span><span class="bn">B 3978 · A 99</span></div>
+<div class="bar"><span class="bl" title="is_spoiler">is_spoiler</span><span class="bt"><i class="warn" style="width:36.1%"></i></span><span class="bv">36.1%</span><span class="bn">B 3329 · A 118</span></div>
+<div class="bar"><span class="bl" title="target">target</span><span class="bt"><i class="warn" style="width:28.0%"></i></span><span class="bv">28.0%</span><span class="bn">game 1123 · other_game 807 · creator 364 · dev 138</span></div>
+<div class="bar"><span class="bl" title="speech_act">speech_act</span><span class="bt"><i class="warn" style="width:27.6%"></i></span><span class="bv">27.6%</span><span class="bn">question 1012 · joke 639 · suggest 496 · report 237</span></div>
+<div class="bar"><span class="bl" title="topic_l1">topic_l1</span><span class="bt"><i class="warn" style="width:26.4%"></i></span><span class="bv">26.4%</span><span class="bn">combat 814 · content 563 · industry 422 · tech 210</span></div>
+<div class="bar"><span class="bl" title="valid">valid</span><span class="bt"><i class="warn" style="width:25.7%"></i></span><span class="bv">25.7%</span><span class="bn">substantive 1355 · fragment 637 · banter 453 · spam 9</span></div>
+<div class="bar"><span class="bl" title="sentiment">sentiment</span><span class="bt"><i class="bad" style="width:12.6%"></i></span><span class="bv">12.6%</span><span class="bn">pos 711 · neg 284 · very_pos 163 · very_neg 45</span></div>
+</div></div><div><h3>每条评论被标注的维度数</h3><div class="bars">
+<div class="bar"><span class="bl" title="1 个维度">1 个维度</span><span class="bt"><i class="" style="width:67.3%"></i></span><span class="bv">959</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="2 个维度">2 个维度</span><span class="bt"><i class="" style="width:100.0%"></i></span><span class="bv">1,425</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="3 个维度">3 个维度</span><span class="bt"><i class="" style="width:80.7%"></i></span><span class="bv">1,150</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="4 个维度">4 个维度</span><span class="bt"><i class="" style="width:64.9%"></i></span><span class="bv">925</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="5 个维度">5 个维度</span><span class="bt"><i class="" style="width:63.2%"></i></span><span class="bv">900</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="6 个维度">6 个维度</span><span class="bt"><i class="" style="width:55.6%"></i></span><span class="bv">793</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="7 个维度">7 个维度</span><span class="bt"><i class="" style="width:61.5%"></i></span><span class="bv">876</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="8 个维度">8 个维度</span><span class="bt"><i class="" style="width:61.4%"></i></span><span class="bv">875</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="9 个维度">9 个维度</span><span class="bt"><i class="" style="width:49.4%"></i></span><span class="bv">704</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="10 个维度">10 个维度</span><span class="bt"><i class="" style="width:41.5%"></i></span><span class="bv">591</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="11 个维度">11 个维度</span><span class="bt"><i class="" style="width:18.7%"></i></span><span class="bv">266</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="12 个维度">12 个维度</span><span class="bt"><i class="" style="width:5.2%"></i></span><span class="bv">74</span><span class="bn"></span></div>
+</div></div></div><div class="finding warn"><b>踩过的坑</b>　v2 第一版把「带转折词」直接弃权，<code>sentiment</code> 覆盖率从 23% 崩到 <b>2.5%</b> —— 中文长评几乎必有「但/不过」。改成「双极弃权、单极降档」后回到 12.6%。</div></section><section id="s4"><h2><span class="num">4</span>微调</h2><p class=note><code>laya-multilingual</code> + <code>option_layout="parallel"</code>（选项顺序无关），RTX 3060 12G。</p><div class="g2"><div><h3>训练损失（RLCD）</h3><svg class="spark" viewBox="0 0 520 150" role="img"><line class="gr" x1="34" y1="126" x2="508" y2="126"/><polygon class="ar" points="34,126 34.0,12.0 192.0,29.8 350.0,88.8 508.0,126.0 508.0,126"/><polyline class="ln" points="34.0,12.0 192.0,29.8 350.0,88.8 508.0,126.0"/><circle cx="34.0" cy="12.0" r="3.2"/><circle cx="192.0" cy="29.8" r="3.2"/><circle cx="350.0" cy="88.8" r="3.2"/><circle cx="508.0" cy="126.0" r="3.2"/><text class="pt" x="34.0" y="3.0">1.231</text><text class="pt" x="192.0" y="20.8">1.087</text><text class="pt" x="350.0" y="79.8">0.612</text><text class="pt" x="508.0" y="117.0">0.311</text><text class="ax" x="34.0" y="142">ep1</text><text class="ax" x="192.0" y="142">ep2</text><text class="ax" x="350.0" y="142">ep3</text><text class="ax" x="508.0" y="142">ep4</text><text class="ax" x="2" y="16">mean loss</text></svg><p class="note">4 epochs · 1,164 次优化更新 · 等效 batch 32</p></div><div><h3>dev 集微调前后</h3><div class="tw"><table><thead><tr><th>指标</th><th>方向</th><th>微调前</th><th>微调后</th><th>变化</th></tr></thead><tbody><tr><td class="">accuracy</td><td class="">越高越好</td><td class="">0.3375</td><td class="">0.9251</td><td class="">+0.5876</td></tr><tr><td class="">ece</td><td class="">越低越好</td><td class="">0.1553</td><td class="">0.0483</td><td class="">-0.1070</td></tr><tr><td class="">brier</td><td class="">越低越好</td><td class="">0.7425</td><td class="">0.1301</td><td class="">-0.6124</td></tr><tr><td class="">loss</td><td class="">越低越好</td><td class="">1.5229</td><td class="">0.3020</td><td class="">-1.2209</td></tr><tr><td class="">mean_confidence</td><td class="">—</td><td class="">0.4929</td><td class="">0.9592</td><td class="">+0.4663</td></tr></tbody></table></div></div></div><div class="g2"><div><h3>数据切分</h3><div class="bars">
+<div class="bar"><span class="bl" title="train">train</span><span class="bt"><i class="" style="width:100.0%"></i></span><span class="bv">5,002</span><span class="bn">9,689 决策</span></div>
+<div class="bar"><span class="bl" title="dev">dev</span><span class="bt"><i class="" style="width:12.7%"></i></span><span class="bv">633</span><span class="bn">1,188 决策</span></div>
+<div class="bar"><span class="bl" title="test">test</span><span class="bt"><i class="" style="width:15.4%"></i></span><span class="bv">771</span><span class="bn">1,485 决策</span></div>
+</div><p class="note">按 rpid 切分，同一条评论的所有决策进同一个 split。</p></div><div><h3>按桶弃答阈值</h3><div class="tw"><table><thead><tr><th>桶</th><th>弃答阈值</th><th>样本数</th></tr></thead><tbody><tr><td class="">choice:3-5</td><td class="">0.9742</td><td class="">70</td></tr><tr><td class="">choice:6-10</td><td class="">0.2996</td><td class="">166</td></tr><tr><td class="">choice:2</td><td class="">0.6325</td><td class="">164</td></tr></tbody></table></div><p class="note">一个标量阈值不能跨选项数通用，所以按 <code>temp_bucket</code> 分别拟合。</p></div></div><div class="finding bad"><b>校准警告</b>　拟合温度 <b>5.0</b>，撞在 [0.5, 5.0] 的上限 —— 模型显著过置信（校准集置信 0.954 vs accuracy 0.887）。<ul><li>the fitted temperature 5 is on the [0.5, 5] clamp</li></ul></div></section><section id="s5"><h2><span class="num">5</span>评测（冻结 test 集）</h2><h3>accuracy：多数类 vs 零样本 vs 微调</h3><div class="legend"><span class="lg mute"><i></i>多数类基线</span> <span class="lg warn"><i></i>零样本</span> <span class="lg good"><i></i>微调后</span></div>
+<div class="gbars">
+<div class="gbar"><span class="gl" title="valid">valid</span><span class="gs"><span class="gt"><i class="mute" style="width:39.0%"></i><b>0.382</b></span><span class="gt"><i class="warn" style="width:25.8%"></i><b>0.253</b></span><span class="gt"><i class="good" style="width:99.1%"></i><b>0.971</b></span></span></div>
+<div class="gbar"><span class="gl" title="is_toxic">is_toxic</span><span class="gs"><span class="gt"><i class="mute" style="width:100.0%"></i><b>0.979</b></span><span class="gt"><i class="warn" style="width:97.9%"></i><b>0.958</b></span><span class="gt"><i class="good" style="width:97.9%"></i><b>0.958</b></span></span></div>
+<div class="gbar"><span class="gl" title="target">target</span><span class="gs"><span class="gt"><i class="mute" style="width:30.2%"></i><b>0.296</b></span><span class="gt"><i class="warn" style="width:21.9%"></i><b>0.214</b></span><span class="gt"><i class="good" style="width:96.9%"></i><b>0.949</b></span></span></div>
+<div class="gbar"><span class="gl" title="mentions_other_game">mentions_other_game</span><span class="gs"><span class="gt"><i class="mute" style="width:57.1%"></i><b>0.559</b></span><span class="gt"><i class="warn" style="width:52.7%"></i><b>0.516</b></span><span class="gt"><i class="good" style="width:96.6%"></i><b>0.946</b></span></span></div>
+<div class="gbar"><span class="gl" title="has_issue">has_issue</span><span class="gs"><span class="gt"><i class="mute" style="width:54.1%"></i><b>0.530</b></span><span class="gt"><i class="warn" style="width:49.7%"></i><b>0.487</b></span><span class="gt"><i class="good" style="width:95.9%"></i><b>0.939</b></span></span></div>
+<div class="gbar"><span class="gl" title="churn_signal">churn_signal</span><span class="gs"><span class="gt"><i class="mute" style="width:91.6%"></i><b>0.897</b></span><span class="gt"><i class="warn" style="width:63.4%"></i><b>0.621</b></span><span class="gt"><i class="good" style="width:95.1%"></i><b>0.931</b></span></span></div>
+<div class="gbar"><span class="gl" title="topic_l1">topic_l1</span><span class="gs"><span class="gt"><i class="mute" style="width:23.3%"></i><b>0.228</b></span><span class="gt"><i class="warn" style="width:21.4%"></i><b>0.210</b></span><span class="gt"><i class="good" style="width:93.0%"></i><b>0.911</b></span></span></div>
+<div class="gbar"><span class="gl" title="purchase_intent">purchase_intent</span><span class="gs"><span class="gt"><i class="mute" style="width:68.1%"></i><b>0.667</b></span><span class="gt"><i class="warn" style="width:69.3%"></i><b>0.678</b></span><span class="gt"><i class="good" style="width:92.7%"></i><b>0.908</b></span></span></div>
+<div class="gbar"><span class="gl" title="speech_act">speech_act</span><span class="gs"><span class="gt"><i class="mute" style="width:27.3%"></i><b>0.267</b></span><span class="gt"><i class="warn" style="width:16.3%"></i><b>0.160</b></span><span class="gt"><i class="good" style="width:92.5%"></i><b>0.905</b></span></span></div>
+<div class="gbar"><span class="gl" title="is_mixed">is_mixed</span><span class="gs"><span class="gt"><i class="mute" style="width:78.8%"></i><b>0.771</b></span><span class="gt"><i class="warn" style="width:67.1%"></i><b>0.657</b></span><span class="gt"><i class="good" style="width:89.0%"></i><b>0.871</b></span></span></div>
+<div class="gbar"><span class="gl" title="is_spoiler">is_spoiler</span><span class="gs"><span class="gt"><i class="mute" style="width:72.3%"></i><b>0.708</b></span><span class="gt"><i class="warn" style="width:65.3%"></i><b>0.639</b></span><span class="gt"><i class="good" style="width:85.1%"></i><b>0.833</b></span></span></div>
+<div class="gbar"><span class="gl" title="sentiment">sentiment</span><span class="gs"><span class="gt"><i class="mute" style="width:46.0%"></i><b>0.450</b></span><span class="gt"><i class="warn" style="width:37.5%"></i><b>0.367</b></span><span class="gt"><i class="good" style="width:84.3%"></i><b>0.825</b></span></span></div>
+</div><div class="g2"><div><h3>macro-F1（类不平衡下的真实水平）</h3><div class="bars">
+<div class="bar"><span class="bl" title="valid">valid</span><span class="bt"><i class="good" style="width:73.1%"></i></span><span class="bv">0.731</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="is_toxic">is_toxic</span><span class="bt"><i class="bad" style="width:48.9%"></i></span><span class="bv">0.489</span><span class="bn">⚠ 实为全预测多数类</span></div>
+<div class="bar"><span class="bl" title="target">target</span><span class="bt"><i class="good" style="width:95.2%"></i></span><span class="bv">0.952</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="mentions_other_game">mentions_other_game</span><span class="bt"><i class="good" style="width:94.5%"></i></span><span class="bv">0.945</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="has_issue">has_issue</span><span class="bt"><i class="good" style="width:93.9%"></i></span><span class="bv">0.939</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="churn_signal">churn_signal</span><span class="bt"><i class="good" style="width:83.8%"></i></span><span class="bv">0.838</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="topic_l1">topic_l1</span><span class="bt"><i class="good" style="width:87.2%"></i></span><span class="bv">0.873</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="purchase_intent">purchase_intent</span><span class="bt"><i class="good" style="width:89.5%"></i></span><span class="bv">0.895</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="speech_act">speech_act</span><span class="bt"><i class="good" style="width:74.3%"></i></span><span class="bv">0.743</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="is_mixed">is_mixed</span><span class="bt"><i class="good" style="width:79.3%"></i></span><span class="bv">0.793</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="is_spoiler">is_spoiler</span><span class="bt"><i class="good" style="width:75.9%"></i></span><span class="bv">0.759</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="sentiment">sentiment</span><span class="bt"><i class="good" style="width:73.2%"></i></span><span class="bv">0.732</span><span class="bn"></span></div>
+</div></div><div><h3>ECE（校准误差，越低越好）</h3><div class="bars">
+<div class="bar"><span class="bl" title="valid">valid</span><span class="bt"><i class="good" style="width:18.8%"></i></span><span class="bv">0.026</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="is_toxic">is_toxic</span><span class="bt"><i class="good" style="width:17.6%"></i></span><span class="bv">0.025</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="target">target</span><span class="bt"><i class="good" style="width:34.3%"></i></span><span class="bv">0.048</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="mentions_other_game">mentions_other_game</span><span class="bt"><i class="good" style="width:36.5%"></i></span><span class="bv">0.051</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="has_issue">has_issue</span><span class="bt"><i class="good" style="width:32.1%"></i></span><span class="bv">0.045</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="churn_signal">churn_signal</span><span class="bt"><i class="good" style="width:31.4%"></i></span><span class="bv">0.044</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="topic_l1">topic_l1</span><span class="bt"><i class="good" style="width:23.7%"></i></span><span class="bv">0.033</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="purchase_intent">purchase_intent</span><span class="bt"><i class="good" style="width:48.0%"></i></span><span class="bv">0.068</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="speech_act">speech_act</span><span class="bt"><i class="good" style="width:42.9%"></i></span><span class="bv">0.060</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="is_mixed">is_mixed</span><span class="bt"><i class="warn" style="width:84.0%"></i></span><span class="bv">0.118</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="is_spoiler">is_spoiler</span><span class="bt"><i class="warn" style="width:75.6%"></i></span><span class="bv">0.106</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="sentiment">sentiment</span><span class="bt"><i class="bad" style="width:100.0%"></i></span><span class="bv">0.141</span><span class="bn"></span></div>
+</div></div></div><h3>完整指标</h3><div class="tw"><table><thead><tr><th>维度</th><th>n</th><th>类数</th><th>多数类</th><th>base_acc</th><th>base_mF1</th><th>base_ECE</th><th>finetuned_acc</th><th>finetuned_mF1</th><th>finetuned_ECE</th></tr></thead><tbody><tr><td class="">valid</td><td class="">170</td><td class="">4</td><td class="">fragment 0.382</td><td class="">0.2529</td><td class="">0.1995</td><td class="">0.2494</td><td class="good">0.9706</td><td class="">0.7306</td><td class="">0.0264</td></tr><tr><td class="">is_toxic</td><td class="">48</td><td class="">2</td><td class="">B 0.979</td><td class="">0.9583</td><td class="">0.4894</td><td class="">0.1262</td><td class="good">0.9583</td><td class="bad">0.4894</td><td class="">0.0248</td></tr><tr><td class="">target</td><td class="">196</td><td class="">6</td><td class="">other_game 0.296</td><td class="">0.2143</td><td class="">0.1596</td><td class="">0.2116</td><td class="good">0.949</td><td class="">0.9519</td><td class="">0.0483</td></tr><tr><td class="">mentions_other_game</td><td class="">93</td><td class="">2</td><td class="">A 0.559</td><td class="">0.5161</td><td class="">0.5049</td><td class="">0.2412</td><td class="good">0.9462</td><td class="">0.945</td><td class="">0.0514</td></tr><tr><td class="">has_issue</td><td class="">115</td><td class="">2</td><td class="">B 0.530</td><td class="">0.487</td><td class="">0.408</td><td class="">0.2955</td><td class="good">0.9391</td><td class="">0.9387</td><td class="">0.0451</td></tr><tr><td class="">churn_signal</td><td class="">58</td><td class="">2</td><td class="">B 0.897</td><td class="">0.6207</td><td class="">0.4821</td><td class="">0.1063</td><td class="good">0.931</td><td class="">0.8375</td><td class="">0.0442</td></tr><tr><td class="">topic_l1</td><td class="">224</td><td class="">8</td><td class="">industry 0.228</td><td class="">0.2098</td><td class="">0.2003</td><td class="">0.2248</td><td class="good">0.9107</td><td class="">0.8725</td><td class="">0.0333</td></tr><tr><td class="">purchase_intent</td><td class="">87</td><td class="">2</td><td class="">B 0.667</td><td class="">0.6782</td><td class="">0.5972</td><td class="">0.1194</td><td class="good">0.908</td><td class="">0.8947</td><td class="">0.0675</td></tr><tr><td class="">speech_act</td><td class="">232</td><td class="">7</td><td class="">question 0.267</td><td class="">0.1595</td><td class="">0.1342</td><td class="">0.3606</td><td class="good">0.9052</td><td class="">0.743</td><td class="">0.0604</td></tr><tr><td class="">is_mixed</td><td class="">70</td><td class="">2</td><td class="">B 0.771</td><td class="">0.6571</td><td class="">0.5666</td><td class="">0.1109</td><td class="warn">0.8714</td><td class="">0.7935</td><td class="">0.1182</td></tr><tr><td class="">is_spoiler</td><td class="">72</td><td class="">2</td><td class="">B 0.708</td><td class="">0.6389</td><td class="">0.5185</td><td class="">0.1678</td><td class="warn">0.8333</td><td class="">0.7589</td><td class="">0.1063</td></tr><tr><td class="">sentiment</td><td class="">120</td><td class="">4</td><td class="">pos 0.450</td><td class="">0.3667</td><td class="">0.2434</td><td class="">0.1291</td><td class="warn">0.825</td><td class="">0.7322</td><td class="">0.1407</td></tr></tbody></table></div><div class="finding warn"><b>必须看 macro-F1</b>　<code>is_toxic</code> accuracy 0.958 看着很好，但 macro-F1 只有 0.489 —— 它实际是<b>全预测 B</b>，因为训练集正例仅 11 条。</div></section><section id="s6"><h2><span class="num">6</span>混淆矩阵</h2><div class="hms"><div class="hm-wrap"><div class="hm-t">topic_l1</div>
+<div class="hm" style="grid-template-columns:auto repeat(8,1fr)">
+<span class="hh"></span>
+<span class="hh" title="business">business</span>
+<span class="hh" title="combat">combat</span>
+<span class="hh" title="community">community</span>
+<span class="hh" title="content">content</span>
+<span class="hh" title="creator">creator</span>
+<span class="hh" title="industry">industry</span>
+<span class="hh" title="player">player</span>
+<span class="hh" title="tech">tech</span>
+<span class="hr" title="business">business</span>
+<span class="hc dg" style="--a:0.857" title="business→business: 12 (85.7%)">12</span>
+<span class="hc" style="--a:0.000" title="business→combat: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="business→community: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="business→content: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="business→creator: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.071" title="business→industry: 1 (7.1%)">1</span>
+<span class="hc" style="--a:0.000" title="business→player: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.071" title="business→tech: 1 (7.1%)">1</span>
+<span class="hr" title="combat">combat</span>
+<span class="hc" style="--a:0.000" title="combat→business: 0 (0.0%)"></span>
+<span class="hc dg" style="--a:0.875" title="combat→combat: 42 (87.5%)">42</span>
+<span class="hc" style="--a:0.000" title="combat→community: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.042" title="combat→content: 2 (4.2%)">2</span>
+<span class="hc" style="--a:0.000" title="combat→creator: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.021" title="combat→industry: 1 (2.1%)">1</span>
+<span class="hc" style="--a:0.042" title="combat→player: 2 (4.2%)">2</span>
+<span class="hc" style="--a:0.021" title="combat→tech: 1 (2.1%)">1</span>
+<span class="hr" title="community">community</span>
+<span class="hc" style="--a:0.000" title="community→business: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.077" title="community→combat: 1 (7.7%)">1</span>
+<span class="hc dg" style="--a:0.846" title="community→community: 11 (84.6%)">11</span>
+<span class="hc" style="--a:0.000" title="community→content: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="community→creator: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="community→industry: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.077" title="community→player: 1 (7.7%)">1</span>
+<span class="hc" style="--a:0.000" title="community→tech: 0 (0.0%)"></span>
+<span class="hr" title="content">content</span>
+<span class="hc" style="--a:0.021" title="content→business: 1 (2.1%)">1</span>
+<span class="hc" style="--a:0.021" title="content→combat: 1 (2.1%)">1</span>
+<span class="hc" style="--a:0.000" title="content→community: 0 (0.0%)"></span>
+<span class="hc dg" style="--a:0.958" title="content→content: 46 (95.8%)">46</span>
+<span class="hc" style="--a:0.000" title="content→creator: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="content→industry: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="content→player: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="content→tech: 0 (0.0%)"></span>
+<span class="hr" title="creator">creator</span>
+<span class="hc" style="--a:0.048" title="creator→business: 1 (4.8%)">1</span>
+<span class="hc" style="--a:0.000" title="creator→combat: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="creator→community: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="creator→content: 0 (0.0%)"></span>
+<span class="hc dg" style="--a:0.952" title="creator→creator: 20 (95.2%)">20</span>
+<span class="hc" style="--a:0.000" title="creator→industry: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="creator→player: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="creator→tech: 0 (0.0%)"></span>
+<span class="hr" title="industry">industry</span>
+<span class="hc" style="--a:0.020" title="industry→business: 1 (2.0%)">1</span>
+<span class="hc" style="--a:0.000" title="industry→combat: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="industry→community: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="industry→content: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="industry→creator: 0 (0.0%)"></span>
+<span class="hc dg" style="--a:0.980" title="industry→industry: 50 (98.0%)">50</span>
+<span class="hc" style="--a:0.000" title="industry→player: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="industry→tech: 0 (0.0%)"></span>
+<span class="hr" title="player">player</span>
+<span class="hc" style="--a:0.167" title="player→business: 2 (16.7%)">2</span>
+<span class="hc" style="--a:0.083" title="player→combat: 1 (8.3%)">1</span>
+<span class="hc" style="--a:0.000" title="player→community: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="player→content: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.167" title="player→creator: 2 (16.7%)">2</span>
+<span class="hc" style="--a:0.000" title="player→industry: 0 (0.0%)"></span>
+<span class="hc dg" style="--a:0.583" title="player→player: 7 (58.3%)">7</span>
+<span class="hc" style="--a:0.000" title="player→tech: 0 (0.0%)"></span>
+<span class="hr" title="tech">tech</span>
+<span class="hc" style="--a:0.059" title="tech→business: 1 (5.9%)">1</span>
+<span class="hc" style="--a:0.000" title="tech→combat: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="tech→community: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="tech→content: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="tech→creator: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="tech→industry: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="tech→player: 0 (0.0%)"></span>
+<span class="hc dg" style="--a:0.941" title="tech→tech: 16 (94.1%)">16</span>
+</div></div><div class="hm-wrap"><div class="hm-t">valid</div>
+<div class="hm" style="grid-template-columns:auto repeat(3,1fr)">
+<span class="hh"></span>
+<span class="hh" title="banter">banter</span>
+<span class="hh" title="fragment">fragment</span>
+<span class="hh" title="substantive">substantive</span>
+<span class="hr" title="banter">banter</span>
+<span class="hc dg" style="--a:0.945" title="banter→banter: 52 (94.5%)">52</span>
+<span class="hc" style="--a:0.055" title="banter→fragment: 3 (5.5%)">3</span>
+<span class="hc" style="--a:0.000" title="banter→substantive: 0 (0.0%)"></span>
+<span class="hr" title="fragment">fragment</span>
+<span class="hc" style="--a:0.015" title="fragment→banter: 1 (1.5%)">1</span>
+<span class="hc dg" style="--a:0.985" title="fragment→fragment: 64 (98.5%)">64</span>
+<span class="hc" style="--a:0.000" title="fragment→substantive: 0 (0.0%)"></span>
+<span class="hr" title="spam">spam</span>
+<span class="hc" style="--a:0.000" title="spam→banter: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="spam→fragment: 0 (0.0%)"></span>
+<span class="hc" style="--a:1.000" title="spam→substantive: 1 (100.0%)">1</span>
+<span class="hr" title="substantive">substantive</span>
+<span class="hc" style="--a:0.000" title="substantive→banter: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="substantive→fragment: 0 (0.0%)"></span>
+<span class="hc dg" style="--a:1.000" title="substantive→substantive: 49 (100.0%)">49</span>
+</div></div><div class="hm-wrap"><div class="hm-t">sentiment</div>
+<div class="hm" style="grid-template-columns:auto repeat(4,1fr)">
+<span class="hh"></span>
+<span class="hh" title="neg">neg</span>
+<span class="hh" title="pos">pos</span>
+<span class="hh" title="very_neg">very_neg</span>
+<span class="hh" title="very_pos">very_pos</span>
+<span class="hr" title="neg">neg</span>
+<span class="hc dg" style="--a:0.805" title="neg→neg: 33 (80.5%)">33</span>
+<span class="hc" style="--a:0.098" title="neg→pos: 4 (9.8%)">4</span>
+<span class="hc" style="--a:0.073" title="neg→very_neg: 3 (7.3%)">3</span>
+<span class="hc" style="--a:0.024" title="neg→very_pos: 1 (2.4%)">1</span>
+<span class="hr" title="pos">pos</span>
+<span class="hc" style="--a:0.037" title="pos→neg: 2 (3.7%)">2</span>
+<span class="hc dg" style="--a:0.870" title="pos→pos: 47 (87.0%)">47</span>
+<span class="hc" style="--a:0.019" title="pos→very_neg: 1 (1.9%)">1</span>
+<span class="hc" style="--a:0.074" title="pos→very_pos: 4 (7.4%)">4</span>
+<span class="hr" title="very_neg">very_neg</span>
+<span class="hc" style="--a:0.333" title="very_neg→neg: 1 (33.3%)">1</span>
+<span class="hc" style="--a:0.000" title="very_neg→pos: 0 (0.0%)"></span>
+<span class="hc dg" style="--a:0.667" title="very_neg→very_neg: 2 (66.7%)">2</span>
+<span class="hc" style="--a:0.000" title="very_neg→very_pos: 0 (0.0%)"></span>
+<span class="hr" title="very_pos">very_pos</span>
+<span class="hc" style="--a:0.000" title="very_pos→neg: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.227" title="very_pos→pos: 5 (22.7%)">5</span>
+<span class="hc" style="--a:0.000" title="very_pos→very_neg: 0 (0.0%)"></span>
+<span class="hc dg" style="--a:0.773" title="very_pos→very_pos: 17 (77.3%)">17</span>
+</div></div><div class="hm-wrap"><div class="hm-t">speech_act</div>
+<div class="hm" style="grid-template-columns:auto repeat(6,1fr)">
+<span class="hh"></span>
+<span class="hh" title="argue">argue</span>
+<span class="hh" title="joke">joke</span>
+<span class="hh" title="question">question</span>
+<span class="hh" title="report">report</span>
+<span class="hh" title="review">review</span>
+<span class="hh" title="suggest">suggest</span>
+<span class="hr" title="argue">argue</span>
+<span class="hc dg" style="--a:0.600" title="argue→argue: 3 (60.0%)">3</span>
+<span class="hc" style="--a:0.000" title="argue→joke: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="argue→question: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="argue→report: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="argue→review: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.400" title="argue→suggest: 2 (40.0%)">2</span>
+<span class="hr" title="joke">joke</span>
+<span class="hc" style="--a:0.000" title="joke→argue: 0 (0.0%)"></span>
+<span class="hc dg" style="--a:0.948" title="joke→joke: 55 (94.8%)">55</span>
+<span class="hc" style="--a:0.017" title="joke→question: 1 (1.7%)">1</span>
+<span class="hc" style="--a:0.000" title="joke→report: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.017" title="joke→review: 1 (1.7%)">1</span>
+<span class="hc" style="--a:0.017" title="joke→suggest: 1 (1.7%)">1</span>
+<span class="hr" title="question">question</span>
+<span class="hc" style="--a:0.000" title="question→argue: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="question→joke: 0 (0.0%)"></span>
+<span class="hc dg" style="--a:0.952" title="question→question: 59 (95.2%)">59</span>
+<span class="hc" style="--a:0.000" title="question→report: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.016" title="question→review: 1 (1.6%)">1</span>
+<span class="hc" style="--a:0.032" title="question→suggest: 2 (3.2%)">2</span>
+<span class="hr" title="report">report</span>
+<span class="hc" style="--a:0.000" title="report→argue: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.032" title="report→joke: 1 (3.2%)">1</span>
+<span class="hc" style="--a:0.032" title="report→question: 1 (3.2%)">1</span>
+<span class="hc dg" style="--a:0.871" title="report→report: 27 (87.1%)">27</span>
+<span class="hc" style="--a:0.032" title="report→review: 1 (3.2%)">1</span>
+<span class="hc" style="--a:0.032" title="report→suggest: 1 (3.2%)">1</span>
+<span class="hr" title="review">review</span>
+<span class="hc" style="--a:0.000" title="review→argue: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.048" title="review→joke: 1 (4.8%)">1</span>
+<span class="hc" style="--a:0.000" title="review→question: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="review→report: 0 (0.0%)"></span>
+<span class="hc dg" style="--a:0.952" title="review→review: 20 (95.2%)">20</span>
+<span class="hc" style="--a:0.000" title="review→suggest: 0 (0.0%)"></span>
+<span class="hr" title="share">share</span>
+<span class="hc" style="--a:0.000" title="share→argue: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="share→joke: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.000" title="share→question: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.200" title="share→report: 1 (20.0%)">1</span>
+<span class="hc" style="--a:0.600" title="share→review: 3 (60.0%)">3</span>
+<span class="hc" style="--a:0.200" title="share→suggest: 1 (20.0%)">1</span>
+<span class="hr" title="suggest">suggest</span>
+<span class="hc" style="--a:0.020" title="suggest→argue: 1 (2.0%)">1</span>
+<span class="hc" style="--a:0.020" title="suggest→joke: 1 (2.0%)">1</span>
+<span class="hc" style="--a:0.000" title="suggest→question: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.020" title="suggest→report: 1 (2.0%)">1</span>
+<span class="hc" style="--a:0.020" title="suggest→review: 1 (2.0%)">1</span>
+<span class="hc dg" style="--a:0.920" title="suggest→suggest: 46 (92.0%)">46</span>
+</div></div></div><p class="note">行 = 真值，列 = 预测；颜色按行归一化，对角线为正确。</p></section><section id="s7"><h2><span class="num">7</span>业务结果</h2><p class=note>全量打标后聚合。<code>valid</code> 闸门先滤掉碎片与垃圾。</p><div class="g2"><div><h3>主题体量</h3><div class="bars">
+<div class="bar"><span class="bl" title="战斗">战斗</span><span class="bt"><i class="" style="width:100.0%"></i></span><span class="bv">1,459</span><span class="bn">负面率 35.8%</span></div>
+<div class="bar"><span class="bl" title="玩家自述">玩家自述</span><span class="bt"><i class="" style="width:98.1%"></i></span><span class="bv">1,431</span><span class="bn">负面率 20.5%</span></div>
+<div class="bar"><span class="bl" title="内容品质">内容品质</span><span class="bt"><i class="" style="width:88.1%"></i></span><span class="bv">1,286</span><span class="bn">负面率 34.8%</span></div>
+<div class="bar"><span class="bl" title="行业生态">行业生态</span><span class="bt"><i class="" style="width:55.1%"></i></span><span class="bv">804</span><span class="bn">负面率 23.3%</span></div>
+<div class="bar"><span class="bl" title="商业产品">商业产品</span><span class="bt"><i class="" style="width:37.0%"></i></span><span class="bv">540</span><span class="bn">负面率 30.2%</span></div>
+<div class="bar"><span class="bl" title="技术性能">技术性能</span><span class="bt"><i class="" style="width:31.3%"></i></span><span class="bv">456</span><span class="bn">负面率 37.1%</span></div>
+<div class="bar"><span class="bl" title="视频与UP主">视频与UP主</span><span class="bt"><i class="" style="width:28.9%"></i></span><span class="bv">422</span><span class="bn">负面率 21.6%</span></div>
+<div class="bar"><span class="bl" title="社区舆论">社区舆论</span><span class="bt"><i class="" style="width:17.5%"></i></span><span class="bv">255</span><span class="bn">负面率 38.0%</span></div>
+</div></div><div><h3>各主题负面率</h3><div class="bars">
+<div class="bar"><span class="bl" title="战斗">战斗</span><span class="bt"><i class="bad" style="width:71.7%"></i></span><span class="bv">35.8%</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="玩家自述">玩家自述</span><span class="bt"><i class="good" style="width:41.1%"></i></span><span class="bv">20.5%</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="内容品质">内容品质</span><span class="bt"><i class="warn" style="width:69.7%"></i></span><span class="bv">34.8%</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="行业生态">行业生态</span><span class="bt"><i class="good" style="width:46.5%"></i></span><span class="bv">23.3%</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="商业产品">商业产品</span><span class="bt"><i class="warn" style="width:60.4%"></i></span><span class="bv">30.2%</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="技术性能">技术性能</span><span class="bt"><i class="bad" style="width:74.1%"></i></span><span class="bv">37.1%</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="视频与UP主">视频与UP主</span><span class="bt"><i class="good" style="width:43.1%"></i></span><span class="bv">21.6%</span><span class="bn"></span></div>
+<div class="bar"><span class="bl" title="社区舆论">社区舆论</span><span class="bt"><i class="bad" style="width:76.1%"></i></span><span class="bv">38.0%</span><span class="bn"></span></div>
+</div></div></div><h3>未加权 vs 赞加权情感</h3><div class="legend"><span class="lg mute"><i></i>未加权情感</span> <span class="lg good"><i></i>赞加权情感</span></div>
+<div class="gbars">
+<div class="gbar"><span class="gl" title="战斗">战斗</span><span class="gs"><span class="gt"><i class="mute" style="width:25.3%"></i><b>0.273</b></span><span class="gt"><i class="good" style="width:57.7%"></i><b>0.625</b></span></span></div>
+<div class="gbar"><span class="gl" title="玩家自述">玩家自述</span><span class="gs"><span class="gt"><i class="mute" style="width:58.3%"></i><b>0.630</b></span><span class="gt"><i class="good" style="width:41.1%"></i><b>0.444</b></span></span></div>
+<div class="gbar"><span class="gl" title="内容品质">内容品质</span><span class="gs"><span class="gt"><i class="mute" style="width:27.6%"></i><b>0.299</b></span><span class="gt"><i class="good" style="width:69.0%"></i><b>0.747</b></span></span></div>
+<div class="gbar"><span class="gl" title="行业生态">行业生态</span><span class="gs"><span class="gt"><i class="mute" style="width:67.4%"></i><b>0.729</b></span><span class="gt"><i class="good" style="width:100.0%"></i><b>1.082</b></span></span></div>
+<div class="gbar"><span class="gl" title="商业产品">商业产品</span><span class="gs"><span class="gt"><i class="mute" style="width:34.7%"></i><b>0.376</b></span><span class="gt"><i class="good" style="width:41.4%"></i><b>0.448</b></span></span></div>
+<div class="gbar"><span class="gl" title="技术性能">技术性能</span><span class="gs"><span class="gt"><i class="mute" style="width:18.8%"></i><b>0.204</b></span><span class="gt"><i class="good" style="width:82.9%"></i><b>0.897</b></span></span></div>
+<div class="gbar"><span class="gl" title="视频与UP主">视频与UP主</span><span class="gs"><span class="gt"><i class="mute" style="width:55.0%"></i><b>0.595</b></span><span class="gt"><i class="good" style="width:0.6%"></i><b>0.000</b></span></span></div>
+<div class="gbar"><span class="gl" title="社区舆论">社区舆论</span><span class="gs"><span class="gt"><i class="mute" style="width:16.3%"></i><b>0.176</b></span><span class="gt"><i class="good" style="width:91.2%"></i><b>0.987</b></span></span></div>
+</div><div class="finding"><b>反差即信号</b>　「技术性能」未加权 0.20 但赞加权 0.90 —— 高赞是「优化比黑猴好」，骂的在长尾低赞；「视频与UP主」反过来（0.59 → −0.02），高赞集中在对 UP 主的负面与催更。</div><h3>负面率时间线</h3><svg class="spark" viewBox="0 0 760 170" role="img"><line class="gr" x1="34" y1="146" x2="748" y2="146"/><polygon class="ar" points="34,146 34.0,110.3 98.9,146.0 163.8,69.4 228.7,95.6 293.6,80.4 358.5,72.9 423.5,75.2 488.4,23.6 553.3,28.5 618.2,75.0 683.1,29.6 748.0,12.0 748.0,146"/><polyline class="ln" points="34.0,110.3 98.9,146.0 163.8,69.4 228.7,95.6 293.6,80.4 358.5,72.9 423.5,75.2 488.4,23.6 553.3,28.5 618.2,75.0 683.1,29.6 748.0,12.0"/><circle cx="34.0" cy="110.3" r="3.2"/><circle cx="98.9" cy="146.0" r="3.2"/><circle cx="163.8" cy="69.4" r="3.2"/><circle cx="228.7" cy="95.6" r="3.2"/><circle cx="293.6" cy="80.4" r="3.2"/><circle cx="358.5" cy="72.9" r="3.2"/><circle cx="423.5" cy="75.2" r="3.2"/><circle cx="488.4" cy="23.6" r="3.2"/><circle cx="553.3" cy="28.5" r="3.2"/><circle cx="618.2" cy="75.0" r="3.2"/><circle cx="683.1" cy="29.6" r="3.2"/><circle cx="748.0" cy="12.0" r="3.2"/><text class="pt" x="34.0" y="101.3">0.224</text><text class="pt" x="98.9" y="137.0">0.179</text><text class="pt" x="163.8" y="60.4">0.277</text><text class="pt" x="228.7" y="86.6">0.243</text><text class="pt" x="293.6" y="71.4">0.263</text><text class="pt" x="358.5" y="63.9">0.272</text><text class="pt" x="423.5" y="66.2">0.269</text><text class="pt" x="488.4" y="14.6">0.335</text><text class="pt" x="553.3" y="19.5">0.329</text><text class="pt" x="618.2" y="66.0">0.270</text><text class="pt" x="683.1" y="20.6">0.327</text><text class="pt" x="748.0" y="3.0">0.350</text><text class="ax" x="34.0" y="162">10-22</text><text class="ax" x="98.9" y="162">10-23</text><text class="ax" x="163.8" y="162">10-24</text><text class="ax" x="228.7" y="162">10-25</text><text class="ax" x="293.6" y="162">10-26</text><text class="ax" x="358.5" y="162">10-27</text><text class="ax" x="423.5" y="162">10-28</text><text class="ax" x="488.4" y="162">10-29</text><text class="ax" x="553.3" y="162">10-30</text><text class="ax" x="618.2" y="162">10-31</text><text class="ax" x="683.1" y="162">11-01</text><text class="ax" x="748.0" y="162">11-02</text><text class="ax" x="2" y="16">负面率</text></svg><p class="note">10-29 发售当天负面率跳到 33.5%，<code>技术性能</code> 话题占比从 8% 飙到 18.5%（着色器编译 / 驱动 / 手柄）。</p><div class="hm-wrap"><div class="hm-t">各天主题占比 (%)</div>
+<div class="hm" style="grid-template-columns:auto repeat(8,1fr)">
+<span class="hh"></span>
+<span class="hh" title="内容品质">内容品质</span>
+<span class="hh" title="商业产品">商业产品</span>
+<span class="hh" title="战斗">战斗</span>
+<span class="hh" title="技术性能">技术性能</span>
+<span class="hh" title="玩家自述">玩家自述</span>
+<span class="hh" title="社区舆论">社区舆论</span>
+<span class="hh" title="行业生态">行业生态</span>
+<span class="hh" title="视频与UP主">视频与UP主</span>
+<span class="hr" title="10-22">10-22</span>
+<span class="hc" style="--a:0.247" title="10-22→内容品质: 24 (24.7%)">24</span>
+<span class="hc" style="--a:0.134" title="10-22→商业产品: 13 (13.4%)">13</span>
+<span class="hc" style="--a:0.134" title="10-22→战斗: 13 (13.4%)">13</span>
+<span class="hc" style="--a:0.072" title="10-22→技术性能: 7 (7.2%)">7</span>
+<span class="hc" style="--a:0.309" title="10-22→玩家自述: 30 (30.9%)">30</span>
+<span class="hc" style="--a:0.031" title="10-22→社区舆论: 3 (3.1%)">3</span>
+<span class="hc" style="--a:0.052" title="10-22→行业生态: 5 (5.2%)">5</span>
+<span class="hc" style="--a:0.021" title="10-22→视频与UP主: 2 (2.1%)">2</span>
+<span class="hr" title="10-23">10-23</span>
+<span class="hc" style="--a:0.208" title="10-23→内容品质: 20 (20.8%)">20</span>
+<span class="hc" style="--a:0.146" title="10-23→商业产品: 14 (14.6%)">14</span>
+<span class="hc" style="--a:0.104" title="10-23→战斗: 10 (10.4%)">10</span>
+<span class="hc" style="--a:0.094" title="10-23→技术性能: 9 (9.4%)">9</span>
+<span class="hc" style="--a:0.281" title="10-23→玩家自述: 27 (28.1%)">27</span>
+<span class="hc" style="--a:0.042" title="10-23→社区舆论: 4 (4.2%)">4</span>
+<span class="hc" style="--a:0.083" title="10-23→行业生态: 8 (8.3%)">8</span>
+<span class="hc" style="--a:0.042" title="10-23→视频与UP主: 4 (4.2%)">4</span>
+<span class="hr" title="10-24">10-24</span>
+<span class="hc" style="--a:0.347" title="10-24→内容品质: 34 (34.7%)">34</span>
+<span class="hc" style="--a:0.173" title="10-24→商业产品: 17 (17.3%)">17</span>
+<span class="hc" style="--a:0.020" title="10-24→战斗: 2 (2.0%)">2</span>
+<span class="hc" style="--a:0.000" title="10-24→技术性能: 0 (0.0%)"></span>
+<span class="hc" style="--a:0.143" title="10-24→玩家自述: 14 (14.3%)">14</span>
+<span class="hc" style="--a:0.082" title="10-24→社区舆论: 8 (8.2%)">8</span>
+<span class="hc" style="--a:0.173" title="10-24→行业生态: 17 (17.3%)">17</span>
+<span class="hc" style="--a:0.061" title="10-24→视频与UP主: 6 (6.1%)">6</span>
+<span class="hr" title="10-25">10-25</span>
+<span class="hc" style="--a:0.082" title="10-25→内容品质: 8 (8.2%)">8</span>
+<span class="hc" style="--a:0.247" title="10-25→商业产品: 24 (24.7%)">24</span>
+<span class="hc" style="--a:0.021" title="10-25→战斗: 2 (2.1%)">2</span>
+<span class="hc" style="--a:0.082" title="10-25→技术性能: 8 (8.2%)">8</span>
+<span class="hc" style="--a:0.247" title="10-25→玩家自述: 24 (24.7%)">24</span>
+<span class="hc" style="--a:0.134" title="10-25→社区舆论: 13 (13.4%)">13</span>
+<span class="hc" style="--a:0.134" title="10-25→行业生态: 13 (13.4%)">13</span>
+<span class="hc" style="--a:0.052" title="10-25→视频与UP主: 5 (5.2%)">5</span>
+<span class="hr" title="10-26">10-26</span>
+<span class="hc" style="--a:0.103" title="10-26→内容品质: 10 (10.3%)">10</span>
+<span class="hc" style="--a:0.103" title="10-26→商业产品: 10 (10.3%)">10</span>
+<span class="hc" style="--a:0.062" title="10-26→战斗: 6 (6.2%)">6</span>
+<span class="hc" style="--a:0.082" title="10-26→技术性能: 8 (8.2%)">8</span>
+<span class="hc" style="--a:0.206" title="10-26→玩家自述: 20 (20.6%)">20</span>
+<span class="hc" style="--a:0.093" title="10-26→社区舆论: 9 (9.3%)">9</span>
+<span class="hc" style="--a:0.351" title="10-26→行业生态: 34 (35.1%)">34</span>
+<span class="hc" style="--a:0.000" title="10-26→视频与UP主: 0 (0.0%)"></span>
+<span class="hr" title="10-27">10-27</span>
+<span class="hc" style="--a:0.175" title="10-27→内容品质: 17 (17.5%)">17</span>
+<span class="hc" style="--a:0.103" title="10-27→商业产品: 10 (10.3%)">10</span>
+<span class="hc" style="--a:0.113" title="10-27→战斗: 11 (11.3%)">11</span>
+<span class="hc" style="--a:0.041" title="10-27→技术性能: 4 (4.1%)">4</span>
+<span class="hc" style="--a:0.381" title="10-27→玩家自述: 37 (38.1%)">37</span>
+<span class="hc" style="--a:0.031" title="10-27→社区舆论: 3 (3.1%)">3</span>
+<span class="hc" style="--a:0.155" title="10-27→行业生态: 15 (15.5%)">15</span>
+<span class="hc" style="--a:0.000" title="10-27→视频与UP主: 0 (0.0%)"></span>
+<span class="hr" title="10-28">10-28</span>
+<span class="hc" style="--a:0.186" title="10-28→内容品质: 18 (18.6%)">18</span>
+<span class="hc" style="--a:0.144" title="10-28→商业产品: 14 (14.4%)">14</span>
+<span class="hc" style="--a:0.093" title="10-28→战斗: 9 (9.3%)">9</span>
+<span class="hc" style="--a:0.103" title="10-28→技术性能: 10 (10.3%)">10</span>
+<span class="hc" style="--a:0.247" title="10-28→玩家自述: 24 (24.7%)">24</span>
+<span class="hc" style="--a:0.072" title="10-28→社区舆论: 7 (7.2%)">7</span>
+<span class="hc" style="--a:0.144" title="10-28→行业生态: 14 (14.4%)">14</span>
+<span class="hc" style="--a:0.010" title="10-28→视频与UP主: 1 (1.0%)">1</span>
+<span class="hr" title="10-29">10-29</span>
+<span class="hc" style="--a:0.134" title="10-29→内容品质: 13 (13.4%)">13</span>
+<span class="hc" style="--a:0.072" title="10-29→商业产品: 7 (7.2%)">7</span>
+<span class="hc" style="--a:0.175" title="10-29→战斗: 17 (17.5%)">17</span>
+<span class="hc" style="--a:0.186" title="10-29→技术性能: 18 (18.6%)">18</span>
+<span class="hc" style="--a:0.258" title="10-29→玩家自述: 25 (25.8%)">25</span>
+<span class="hc" style="--a:0.041" title="10-29→社区舆论: 4 (4.1%)">4</span>
+<span class="hc" style="--a:0.124" title="10-29→行业生态: 12 (12.4%)">12</span>
+<span class="hc" style="--a:0.010" title="10-29→视频与UP主: 1 (1.0%)">1</span>
+<span class="hr" title="10-30">10-30</span>
+<span class="hc" style="--a:0.124" title="10-30→内容品质: 12 (12.4%)">12</span>
+<span class="hc" style="--a:0.072" title="10-30→商业产品: 7 (7.2%)">7</span>
+<span class="hc" style="--a:0.340" title="10-30→战斗: 33 (34.0%)">33</span>
+<span class="hc" style="--a:0.082" title="10-30→技术性能: 8 (8.2%)">8</span>
+<span class="hc" style="--a:0.165" title="10-30→玩家自述: 16 (16.5%)">16</span>
+<span class="hc" style="--a:0.031" title="10-30→社区舆论: 3 (3.1%)">3</span>
+<span class="hc" style="--a:0.165" title="10-30→行业生态: 16 (16.5%)">16</span>
+<span class="hc" style="--a:0.021" title="10-30→视频与UP主: 2 (2.1%)">2</span>
+<span class="hr" title="10-31">10-31</span>
+<span class="hc" style="--a:0.083" title="10-31→内容品质: 8 (8.3%)">8</span>
+<span class="hc" style="--a:0.021" title="10-31→商业产品: 2 (2.1%)">2</span>
+<span class="hc" style="--a:0.354" title="10-31→战斗: 34 (35.4%)">34</span>
+<span class="hc" style="--a:0.010" title="10-31→技术性能: 1 (1.0%)">1</span>
+<span class="hc" style="--a:0.156" title="10-31→玩家自述: 15 (15.6%)">15</span>
+<span class="hc" style="--a:0.042" title="10-31→社区舆论: 4 (4.2%)">4</span>
+<span class="hc" style="--a:0.031" title="10-31→行业生态: 3 (3.1%)">3</span>
+<span class="hc" style="--a:0.302" title="10-31→视频与UP主: 29 (30.2%)">29</span>
+<span class="hr" title="11-01">11-01</span>
+<span class="hc" style="--a:0.286" title="11-01→内容品质: 28 (28.6%)">28</span>
+<span class="hc" style="--a:0.071" title="11-01→商业产品: 7 (7.1%)">7</span>
+<span class="hc" style="--a:0.265" title="11-01→战斗: 26 (26.5%)">26</span>
+<span class="hc" style="--a:0.041" title="11-01→技术性能: 4 (4.1%)">4</span>
+<span class="hc" style="--a:0.204" title="11-01→玩家自述: 20 (20.4%)">20</span>
+<span class="hc" style="--a:0.010" title="11-01→社区舆论: 1 (1.0%)">1</span>
+<span class="hc" style="--a:0.092" title="11-01→行业生态: 9 (9.2%)">9</span>
+<span class="hc" style="--a:0.031" title="11-01→视频与UP主: 3 (3.1%)">3</span>
+<span class="hr" title="11-02">11-02</span>
+<span class="hc" style="--a:0.326" title="11-02→内容品质: 31 (32.6%)">31</span>
+<span class="hc" style="--a:0.042" title="11-02→商业产品: 4 (4.2%)">4</span>
+<span class="hc" style="--a:0.295" title="11-02→战斗: 28 (29.5%)">28</span>
+<span class="hc" style="--a:0.032" title="11-02→技术性能: 3 (3.2%)">3</span>
+<span class="hc" style="--a:0.189" title="11-02→玩家自述: 18 (18.9%)">18</span>
+<span class="hc" style="--a:0.011" title="11-02→社区舆论: 1 (1.1%)">1</span>
+<span class="hc" style="--a:0.074" title="11-02→行业生态: 7 (7.4%)">7</span>
+<span class="hc" style="--a:0.032" title="11-02→视频与UP主: 3 (3.2%)">3</span>
+</div></div><h3>汇总</h3><div class="tw"><table><thead><tr><th>主题</th><th>条数</th><th>负面率</th><th>情感均分</th><th>赞加权情感</th><th>加权差</th></tr></thead><tbody><tr><td class="">战斗</td><td class="">1459</td><td class="">35.8%</td><td class="">0.27</td><td class="">0.62</td><td class="">0.35</td></tr><tr><td class="">玩家自述</td><td class="">1431</td><td class="">20.5%</td><td class="">0.63</td><td class="">0.44</td><td class="">-0.19</td></tr><tr><td class="">内容品质</td><td class="">1286</td><td class="">34.8%</td><td class="">0.3</td><td class="">0.75</td><td class="">0.45</td></tr><tr><td class="">行业生态</td><td class="">804</td><td class="">23.3%</td><td class="">0.73</td><td class="">1.08</td><td class="">0.35</td></tr><tr><td class="">商业产品</td><td class="">540</td><td class="">30.2%</td><td class="">0.38</td><td class="">0.45</td><td class="">0.07</td></tr><tr><td class="">技术性能</td><td class="">456</td><td class="">37.1%</td><td class="">0.2</td><td class="">0.9</td><td class="">0.69</td></tr><tr><td class="">视频与UP主</td><td class="">422</td><td class="">21.6%</td><td class="">0.59</td><td class="">-0.02</td><td class="">-0.62</td></tr><tr><td class="">社区舆论</td><td class="">255</td><td class="">38.0%</td><td class="">0.18</td><td class="">0.99</td><td class="">0.81</td></tr></tbody></table></div></section><section id="sx"><h2><span class="num">!</span>已知限制</h2><p class=note>这一节比上面所有数字都重要。</p><ul class="limits"><li><span class="sev s3">高</span><b>test 标签来自规则弱监督，不是人工标注</b><p>分数衡量「模型是否学会了规则体现的那套判别」，不等于人工一致率。抽检估计规则本身 topic_l1 精度约 72–75%，真实上限 ≈ 规则精度 × 0.91。<code>data/train/golden_todo.xlsx</code>（589 条）标完替换 test 集重跑才是真指标。</p></li><li><span class="sev s3">高</span><b>is_toxic 完全失败</b><p>macro-F1 0.489 = 全预测 B。训练集正例仅 11 条。<b>不可用于自动封禁或处罚。</b></p></li><li><span class="sev s3">高</span><b>sentiment 学不出 neutral</b><p>规则从不输出中立，全量预测里 neutral 仅 0.3%。这是弱监督的结构性缺陷，必须人工补。</p></li><li><span class="sev s2">中</span><b>温度拟合撞上限</b><p>温度 5.0 撞 [0.5,5.0] 上限，模型过置信；is_mixed / is_spoiler 的 ECE 偏高（0.118 / 0.106）。</p></li><li><span class="sev s2">中</span><b>is_sarcasm, is_actionable 未训练</b><p>规则不可靠、无弱标签，输出是噪声。</p></li><li><span class="sev s2">中</span><b>parallel 布局的代价</b><p>需 transformers≥5，只能 eager 后端 —— ONNX 导出、TileLang 快路径、<code>compile=True</code> 都会拒绝。</p></li><li><span class="sev s1">低</span><b>IP属地 全为「未知」</b><p>地域维度做不了。</p></li><li><span class="sev s1">低</span><b>跨游戏泛化未验证</b><p>词表与二级主题围绕《影之刃零》与这 7 个视频长出来的。</p></li></ul></section>
+<footer>
+<span>pbz-comment-insight · 代码 Apache-2.0 · 基座 <a href="https://github.com/NandhaKishorM/laya">Laya</a> Apache-2.0</span>
+<span>自包含单文件 · 无 CDN / 无 JS 依赖 · 支持深浅色</span>
+</footer>
+</div></body></html>

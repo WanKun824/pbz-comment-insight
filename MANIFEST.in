@@ -1,0 +1,3 @@
+include README.md LICENSE config.yaml requirements.txt
+recursive-include taxonomy *.json
+recursive-include docs *.md

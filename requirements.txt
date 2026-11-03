@@ -1,0 +1,10 @@
+# 运行时依赖（与 pyproject.toml 保持一致）
+laya>=0.4.21
+torch>=2.4
+transformers>=5.0        # option_layout="parallel" 的硬要求
+pandas>=2.0
+numpy>=1.24
+pyarrow>=14.0
+tabulate>=0.9            # DataFrame.to_markdown
+openpyxl>=3.1            # golden_todo.xlsx
+PyYAML>=6.0

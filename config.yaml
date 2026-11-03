@@ -1,0 +1,59 @@
+# 项目配置。所有路径相对项目根（含本文件的目录），可被 CLI 参数覆盖。
+project:
+  name: pbz-comment-insight
+  game: 影之刃零
+  game_alias: Phantom Blade Zero
+  # 单机买断制动作游戏；故不含抽卡/排位/服务器经济等手游词表
+  game_type: premium_single_player_action
+
+paths:
+  taxonomy: taxonomy/labels_v2.json
+  raw_cache: data/raw/cache                  # 爬虫原始 json（rpid 为字符串，root/parent 完好）
+  raw_csv: data/raw/comments_all.csv         # 历史 CSV，仅用于重建报告对比
+  clean: data/clean/comments_clean.parquet
+  weak: data/weak/weak_labels.parquet
+  train_dir: data/train
+  ckpt: artifacts/ckpt/laya-pbz-v1
+  pred: artifacts/pred/pred_full.parquet
+  eval_dir: artifacts/eval
+  report_dir: artifacts/report
+  log_dir: logs
+
+model:
+  base_id: convaiinnovations/laya
+  base_subfolder: multilingual               # 中文必须；English 检查点在非英语上 macro 仅 0.227
+  device: cuda                               # cuda / mps / cpu
+  max_len: 768
+  head_max_len: 320                          # state P95 仅 280 字，不必给 1024
+  batch_size: 8
+  rotate: "1"                                # 实测 option_order 轮转无收益且贵 11.5x，故关闭
+
+weak_label:
+  min_len_topic: 15                          # 主题判定的最短字数（短句歧义过大）
+  min_len_sentiment: 12
+  min_len_target: 8
+  meme_sentiment_cutoff: 40                  # 含梗且短于此 → 情感弃权（反讽风险）
+
+dataset:
+  cap_per_label: 450                         # 每 (维度,标签) 封顶，防止只学先验
+  dev_frac: 0.10
+  test_frac: 0.12
+  seed: 0
+  golden_n: 600                              # 人工标注待办条数
+
+train:
+  epochs: 4
+  micro_batch: 2                             # RTX 3060 12G 的上限，实测占 11.4G
+  grad_accum: 16
+  encoder_lr: 2.5e-5
+  head_lr: 1.0e-4
+  loss: rlcd
+  option_layout: parallel                    # 顺序无关；需 transformers>=5，只能 eager 后端
+  gradient_checkpointing: true
+  max_len: 640
+  seed: 0
+
+aggregate:
+  min_conf: 0.0                              # 只统计置信度 ≥ 此值的答案
+  drop_valid: [fragment, spam]               # 业务统计前过滤的 valid 档位
+  sentiment_weight: { very_neg: -2, neg: -1, neutral: 0, pos: 1, very_pos: 2 }

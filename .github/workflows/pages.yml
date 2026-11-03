@@ -1,0 +1,39 @@
+name: pages
+
+# 把 HTML 看板发到 GitHub Pages。
+# 看板是自包含单文件（无 CDN / 无 JS 依赖），所以直接 copy 就能上线。
+on:
+  push:
+    branches: [main]
+    paths: ['artifacts/report/dashboard.html', 'docs/**', '.github/workflows/pages.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: 组装站点
+        run: |
+          mkdir -p _site
+          cp artifacts/report/dashboard.html _site/index.html
+          cp -r docs _site/docs
+          cp artifacts/report/*.csv _site/ 2>/dev/null || true
+          cp artifacts/eval/report.md _site/docs/评测报告.md 2>/dev/null || true
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: _site }
+      - id: deploy
+        uses: actions/deploy-pages@v4

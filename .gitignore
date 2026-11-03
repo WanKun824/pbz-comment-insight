@@ -1,0 +1,49 @@
+# ============================================================
+#  隐私优先：含 B站用户昵称 / UID / 评论原文的文件一律不入公开仓库
+#  用 `python scripts/privacy_scan.py` 可随时复核（26 个文件 / 40 MB）
+# ============================================================
+# 原始抓取数据
+data/raw/cache/
+data/raw/markdown/
+data/raw/*.csv
+
+# 含评论原文的中间产物
+data/clean/*.parquet
+data/clean/*.csv
+data/weak/*.parquet
+data/weak/spotcheck.csv
+data/train/*.jsonl
+data/train/*.xlsx
+data/train/*.csv
+artifacts/pred/
+
+# 含评论原文的报告（聚合表与看板不含，见下）
+artifacts/report/可行动清单.csv
+artifacts/report/舆情报告.md
+
+# 运行日志（含昵称）
+logs/
+
+# 模型权重 —— 单独分发，见 docs/打包说明.md
+artifacts/ckpt/**/model.safetensors
+artifacts/ckpt/**/checkpoint_latest/
+artifacts/ckpt/**/tokenizer/tokenizer.json
+
+# ============================================================
+#  常规
+# ============================================================
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.ruff_cache/
+.pytest_cache/
+.idea/
+.vscode/
+.DS_Store
+.playwright-mcp/
+_site/
