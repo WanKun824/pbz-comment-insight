@@ -29,7 +29,7 @@
   "comments": [
     {"rpid": "321944070160",            // 必须是字符串！见下
      "root": "0", "parent": "0",
-     "uname": "...", "uid": "...", "level": 6, "sex": "男", "ip": "未知",
+     "uname": "<昵称>", "uid": "<UID>", "level": 6, "sex": "男", "ip": "未知",
      "time": 1793005982, "like": 8115, "content": "...", "rcount": 2372,
      "subs": [ /* 同结构的楼中楼 */ ]}
   ]

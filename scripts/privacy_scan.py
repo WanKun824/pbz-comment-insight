@@ -17,10 +17,18 @@ BINARY_PII = ('.parquet', '.xlsx', '.xls', '.pkl')
 
 
 def load_probes(clean: str):
+    """探针：昵称 / UID / 评论片段。
+
+    视频标题与 UP 主名是**公开元数据**，聚合报告里本来就会出现，
+    所以要从探针里剔除，否则会把 `视频维度.csv` 这类纯聚合文件误报成含隐私。
+    """
     cl = pd.read_parquet(clean)
-    names = {n for n in cl['昵称'].astype(str).head(500) if len(n) > 3}
-    uids = {u for u in cl['UID'].astype(str).head(500) if len(u) > 6}
-    texts = [t[:18] for t in cl['内容'].astype(str) if len(t) > 18][:400]
+    public = ' '.join(cl['视频标题'].astype(str).unique()) + ' ' +              ' '.join(cl['UP主'].astype(str).unique() if 'UP主' in cl else [])
+    names = {n for n in cl['昵称'].astype(str).unique()
+             if len(n) > 3 and n not in public}
+    uids = {u for u in cl['UID'].astype(str).unique() if len(u) > 6}
+    texts = [t[:18] for t in cl['内容'].astype(str).unique()
+             if len(t) > 18 and t[:18] not in public][:600]
     return names, uids, texts
 
 
@@ -30,11 +38,11 @@ def scan_text(path: str, names, uids, texts) -> list[str]:
     except OSError:
         return []
     hit = []
-    if sum(1 for n in names if n in s) >= 2:
+    if sum(1 for n in names if n in s) >= 1:
         hit.append('昵称')
-    if sum(1 for t in texts if t in s) >= 2:
+    if sum(1 for t in texts if t in s) >= 1:
         hit.append('评论原文')
-    if sum(1 for u in uids if u in s) >= 3:
+    if sum(1 for u in uids if u in s) >= 1:
         hit.append('UID')
     return hit
 

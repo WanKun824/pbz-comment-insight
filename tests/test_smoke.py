@@ -92,25 +92,29 @@ def test_expand_and_reduce_roundtrip():
 
 
 def test_weak_rules_on_known_cases():
-    """用抽检里暴露过的真实误例做回归，防止词表改动把老 bug 放回来。"""
+    """针对抽检里暴露过的 6 类系统性误判做回归，防止词表改动把老 bug 放回来。
+
+    用例是**合成**的（不引用真实用户评论），但每条都踩中当初出错的那个正则路径。
+    对应修正见 docs/训练实录.md 的「v1 → v2 的修正」表。
+    """
     from pbz.weak import rule_sentiment, rule_speech_act, rule_target, rule_topic_l1
 
-    # v1 bug：「十分」吃掉「十分钟」
-    assert rule_sentiment('机制讲清楚比说十分钟废话强多了呀，这点我最服', 20)[0] != 'very_pos'
-    # v1 bug：梗句反讽被判强负面
-    assert rule_sentiment('差评，给我狠狠漏出来啊[doge][doge]', 15)[0] is None
-    # v1 bug：疑问句被判情感
-    assert rule_sentiment('做支线对完美结局有影响吗？我好多支线任务烂了', 20)[0] is None
-    # v1 bug：「节奏」把战斗话题归到 community
-    assert rule_topic_l1('不能用玩魂的思维打反击，这游戏节奏一停就断，越往后越顺', 28)[0] == 'combat'
-    # v1 bug：「帧」把战斗话题归到 tech
-    assert rule_topic_l1('感觉那个红光就几帧的反应时间，太快了根本来不及精防', 24)[0] == 'combat'
-    # v1 bug：「更新」把他游归到 creator
-    assert rule_target('黑猴后面就没做好，两年过去了也不更新补全', 20, False)[0] != 'creator'
-    # 短句一律弃权
+    # v1 bug：POS_STRONG 的「十分」吃掉了「十分钟」，把时长吐槽判成强正面
+    assert rule_sentiment('前面十分钟全是废话，讲机制才用了两分钟', 20)[0] != 'very_pos'
+    # v1 bug：梗句里的反讽褒贬被当字面，判成强负面
+    assert rule_sentiment('差评，这建模做得也太敬业了吧[doge][doge]', 18)[0] is None
+    # v1 bug：疑问句被判情感（「烂了」指任务没做完，不是评价）
+    assert rule_sentiment('支线没做完会影响结局吗？我好多支线都烂在半路了', 22)[0] is None
+    # v1 bug：「节奏」不分战斗节奏与舆论节奏，把战斗话题归到 community
+    assert rule_topic_l1('这游戏的战斗节奏一停就断，必须逼着往前压，格挡和精防都要跟上', 29)[0] == 'combat'
+    # v1 bug：「帧」不分帧率与动作帧，把战斗话题归到 tech
+    assert rule_topic_l1('红光提示只有几帧的反应时间，太快了根本来不及精防或者闪避', 27)[0] == 'combat'
+    # v1 bug：「更新」被当成 UP 主催更词，把他游评价归到 creator
+    assert rule_target('那款老游戏发售两年了也不更新补全内容', 18, False)[0] != 'creator'
+    # 短句一律弃权 —— 脱离上下文无法判主题
     assert rule_topic_l1('又是魂', 3)[0] is None
-    # 严格疑问优先于 report
-    assert rule_speech_act('这游戏适配的是索尼还是微软的手柄啊', 17, False)[0] == 'question'
+    # v1 bug：report 规则抢走了带技术词的提问句（question 一度占 48%）
+    assert rule_speech_act('请问这个适配的是索尼还是微软的手柄啊', 18, False)[0] == 'question'
 
 
 def test_train_jsonl_gold_schema():
