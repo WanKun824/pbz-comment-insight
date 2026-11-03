@@ -53,7 +53,9 @@ def test_localization_preserves_probabilities_nulls_and_is_idempotent():
     result = localize_predictions(source, SC)
     assert source.p_topic_l1.iloc[0] == 'tech', '不应就地修改输入'
     assert result.p_topic_l1.tolist() == ['技术性能', '技术性能', '战斗', 'future_topic']
-    assert result.p_topic_l2.tolist() == ['着色器编译', '帧率与流畅度', None, 'future_subtopic']
+    assert result.p_topic_l2.dropna().tolist() == ['着色器编译', '帧率与流畅度', 'future_subtopic']
+    # pandas 2 的 object 列与 pandas 3 的 str 列使用不同空值标记，缺失位置必须一致。
+    pd.testing.assert_series_equal(result.p_topic_l2.isna(), source.p_topic_l2.isna())
     probs = json.loads(result.probs_json.iloc[0])
     assert probs['topic_l1'] == {'技术性能': 0.8, '战斗': 0.2}
     assert probs['topic_l2'] == {'着色器编译': 0.6, '帧率与流畅度': 0.4}
