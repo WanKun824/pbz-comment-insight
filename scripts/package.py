@@ -106,7 +106,7 @@ def walk(patterns: list[str]) -> list[str]:
     return sorted(set(out))
 
 
-def make(tag: str, patterns: list[str], level: int = 9) -> str | None:
+def make(tag: str, patterns: list[str], level: int = 9, out_dir: str | None = None) -> str | None:
     rels = walk(patterns)
     if tag == 'weights' and set(rels) != set(WEIGHTS_INCLUDE):
         missing = sorted(set(WEIGHTS_INCLUDE) - set(rels))
@@ -114,9 +114,10 @@ def make(tag: str, patterns: list[str], level: int = 9) -> str | None:
     if not rels:
         print(f'[skip] {tag}: 没有匹配文件')
         return None
-    os.makedirs(DIST, exist_ok=True)
+    output_dir = os.path.abspath(out_dir or DIST)
+    os.makedirs(output_dir, exist_ok=True)
     stem = 'laya-pbz-v1-weights' if tag == 'weights' else f'{NAME}-{__version__}-{tag}'
-    path = os.path.join(DIST, stem + '.zip')
+    path = os.path.join(output_dir, stem + '.zip')
     root_in_zip = f'{NAME}-{__version__}' if tag != 'weights' else 'laya-pbz-v1'
     payload = {}
     if tag == 'weights':
@@ -158,6 +159,7 @@ def make(tag: str, patterns: list[str], level: int = 9) -> str | None:
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument('--only', choices=['src', 'full', 'weights'], default=None)
+    ap.add_argument('--out-dir', default=None, help='产物目录；空间不足时可指定其他磁盘，默认 dist/')
     ap.add_argument('--verify', metavar='ZIP', help='校验已下载的权重 zip、同名 .sha256 和包内清单')
     a = ap.parse_args()
     if a.verify:
@@ -167,7 +169,7 @@ def main() -> int:
     for tag, pats in jobs.items():
         if a.only and tag != a.only:
             continue
-        make(tag, pats, level=6 if tag == 'weights' else 9)
+        make(tag, pats, level=6 if tag == 'weights' else 9, out_dir=a.out_dir)
     return 0
 
 
