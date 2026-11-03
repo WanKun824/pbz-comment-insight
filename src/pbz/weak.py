@@ -42,7 +42,8 @@ from .lexicon import (
     TOXIC,
     TURN,
 )
-from .schema import DIMS_BIN, DIMS_MULTI, DIMS_UNTRAINED
+from .schema import DIMS_BIN, DIMS_MULTI, DIMS_UNTRAINED, load_schema
+from .topics import topic_label
 
 
 # ---------------------------------------------------------------- 单维度规则
@@ -215,12 +216,14 @@ def run(cfg: Config, spotcheck: int = 8) -> pd.DataFrame:
     w.to_parquet(out, index=False)
 
     dims = DIMS_MULTI + DIMS_BIN
+    sc = load_schema(cfg.path('paths.taxonomy'))
     L = ['# 弱监督覆盖率报告 v2\n', f'样本 {len(w)} 条（去重后）\n',
          '## 各维度覆盖率与标签分布\n',
          '| 维度 | 覆盖率 | 标注数 | 分布 |', '|---|---:|---:|---|']
     for d in dims:
         c = w['w_' + d]
-        dist = ' · '.join(f'{k} {v}' for k, v in c.value_counts().items())
+        dist = ' · '.join(f'{topic_label(sc, k) if d == "topic_l1" else k} {v}'
+                          for k, v in c.value_counts().items())
         L.append(f'| `{d}` | {c.notna().mean() * 100:.1f}% | {c.notna().sum()} | {dist} |')
     L += ['', f'未做规则（留人工）：{", ".join(DIMS_UNTRAINED)}', '',
           '## 每条被标注的维度数\n', '| 维度数 | 条数 |', '|---:|---:|']
@@ -233,6 +236,11 @@ def run(cfg: Config, spotcheck: int = 8) -> pd.DataFrame:
         L.append(f'\n**{d}**\n')
         L += ['| 规则 | 次数 |', '|---|---:|']
         for k, v in w['r_' + d].replace('', np.nan).value_counts().items():
+            if d == 'topic_l1':
+                for key, label in sc['cn_names']['topic_l1'].items():
+                    if k.startswith(key):
+                        k = label + k[len(key):]
+                        break
             L.append(f'| {k} | {v} |')
     open(os.path.join(os.path.dirname(out), 'coverage.md'), 'w', encoding='utf-8').write('\n'.join(L))
 
@@ -242,7 +250,8 @@ def run(cfg: Config, spotcheck: int = 8) -> pd.DataFrame:
         sub = w[w['w_' + d].notna()]
         for lab, g in sub.groupby('w_' + d):
             for _, r in g.sample(min(spotcheck, len(g)), random_state=1).iterrows():
-                sp.append({'维度': d, '弱标签': lab, '命中规则': r['r_' + d], '字数': r['字数'],
+                sp.append({'维度': d, '弱标签': topic_label(sc, lab) if d == 'topic_l1' else lab,
+                           '命中规则': r['r_' + d], '字数': r['字数'],
                            '内容': str(r['内容'])[:160], '父评论': str(r['父评论'])[:80],
                            '人工判定_对错': '', '正确标签': ''})
     pd.DataFrame(sp).to_csv(os.path.join(os.path.dirname(out), 'spotcheck.csv'),

@@ -7,7 +7,7 @@
 | 维度 | 覆盖率 | 标注数 | 分布 |
 |---|---:|---:|---|
 | `valid` | 25.7% | 2454 | substantive 1355 · fragment 637 · banter 453 · spam 9 |
-| `topic_l1` | 26.4% | 2520 | combat 814 · content 563 · industry 422 · tech 210 · creator 170 · business 154 · player 94 · community 93 |
+| `topic_l1` | 26.4% | 2520 | 战斗 814 · 内容品质 563 · 行业生态 422 · 技术性能 210 · 视频与UP主 170 · 商业产品 154 · 玩家自述 94 · 社区舆论 93 |
 | `sentiment` | 12.6% | 1203 | pos 711 · neg 284 · very_pos 163 · very_neg 45 |
 | `target` | 28.0% | 2666 | game 1123 · other_game 807 · creator 364 · dev 138 · other_player 122 · none 112 |
 | `speech_act` | 27.6% | 2630 | question 1012 · joke 639 · suggest 496 · report 237 · review 131 · argue 85 · share 30 |
@@ -59,52 +59,52 @@
 
 | 规则 | 次数 |
 |---|---:|
-| combat独占x1 | 588 |
-| content独占x1 | 399 |
-| industry独占x1 | 328 |
-| creator独占x1 | 152 |
-| tech独占x1 | 152 |
-| business独占x1 | 141 |
-| combat独占x2 | 137 |
-| content独占x2 | 98 |
-| player独占x1 | 94 |
-| community独占x1 | 83 |
-| industry独占x2 | 73 |
-| tech独占x2 | 37 |
-| combat独占x3 | 29 |
-| combat压倒x3vs1 | 26 |
-| content压倒x3vs1 | 22 |
-| content独占x3 | 19 |
-| creator独占x2 | 18 |
-| industry独占x3 | 16 |
-| tech独占x3 | 14 |
-| combat独占x4 | 11 |
-| community独占x2 | 10 |
-| business独占x2 | 8 |
-| combat压倒x4vs1 | 7 |
-| content独占x4 | 6 |
-| combat独占x5 | 6 |
-| content压倒x4vs1 | 6 |
-| content独占x5 | 6 |
-| combat压倒x5vs1 | 4 |
-| business压倒x3vs1 | 3 |
-| tech独占x4 | 3 |
-| industry压倒x3vs1 | 3 |
-| content压倒x5vs1 | 3 |
-| tech压倒x3vs1 | 2 |
-| business独占x3 | 2 |
-| combat独占x6 | 2 |
-| content压倒x6vs2 | 2 |
-| industry独占x4 | 1 |
-| industry压倒x4vs1 | 1 |
-| combat压倒x6vs2 | 1 |
-| tech压倒x6vs1 | 1 |
-| content压倒x6vs1 | 1 |
-| combat压倒x6vs1 | 1 |
-| combat独占x7 | 1 |
-| content独占x6 | 1 |
-| tech独占x5 | 1 |
-| combat压倒x7vs1 | 1 |
+| 战斗独占x1 | 588 |
+| 内容品质独占x1 | 399 |
+| 行业生态独占x1 | 328 |
+| 视频与UP主独占x1 | 152 |
+| 技术性能独占x1 | 152 |
+| 商业产品独占x1 | 141 |
+| 战斗独占x2 | 137 |
+| 内容品质独占x2 | 98 |
+| 玩家自述独占x1 | 94 |
+| 社区舆论独占x1 | 83 |
+| 行业生态独占x2 | 73 |
+| 技术性能独占x2 | 37 |
+| 战斗独占x3 | 29 |
+| 战斗压倒x3vs1 | 26 |
+| 内容品质压倒x3vs1 | 22 |
+| 内容品质独占x3 | 19 |
+| 视频与UP主独占x2 | 18 |
+| 行业生态独占x3 | 16 |
+| 技术性能独占x3 | 14 |
+| 战斗独占x4 | 11 |
+| 社区舆论独占x2 | 10 |
+| 商业产品独占x2 | 8 |
+| 战斗压倒x4vs1 | 7 |
+| 内容品质独占x4 | 6 |
+| 战斗独占x5 | 6 |
+| 内容品质压倒x4vs1 | 6 |
+| 内容品质独占x5 | 6 |
+| 战斗压倒x5vs1 | 4 |
+| 商业产品压倒x3vs1 | 3 |
+| 技术性能独占x4 | 3 |
+| 行业生态压倒x3vs1 | 3 |
+| 内容品质压倒x5vs1 | 3 |
+| 技术性能压倒x3vs1 | 2 |
+| 商业产品独占x3 | 2 |
+| 战斗独占x6 | 2 |
+| 内容品质压倒x6vs2 | 2 |
+| 行业生态独占x4 | 1 |
+| 行业生态压倒x4vs1 | 1 |
+| 战斗压倒x6vs2 | 1 |
+| 技术性能压倒x6vs1 | 1 |
+| 内容品质压倒x6vs1 | 1 |
+| 战斗压倒x6vs1 | 1 |
+| 战斗独占x7 | 1 |
+| 内容品质独占x6 | 1 |
+| 技术性能独占x5 | 1 |
+| 战斗压倒x7vs1 | 1 |
 
 **sentiment**
 

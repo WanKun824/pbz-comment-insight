@@ -22,6 +22,16 @@
     "valid": {"substantive": "有实质内容", "banter": "玩梗互动", "fragment": "碎片无法判断", "spam": "广告垃圾"},
     "topic_l1": {"combat": "战斗", "content": "内容品质", "tech": "技术性能", "business": "商业产品",
                  "industry": "行业生态", "creator": "视频与UP主", "community": "社区舆论", "player": "玩家自述"},
+    "topic_l2": {
+      "combat": {"feel": "战斗手感", "parry": "拼刀精防", "moveset": "招式流派", "difficulty": "战斗难度", "boss": "首领战斗", "enemy": "小怪与地形", "control": "按键操作", "spectacle": "战斗演出", "genre": "品类归属"},
+      "content": {"story": "主线剧情", "worldview": "世界观与武侠味", "character": "角色塑造", "script": "台词文案", "art": "美术画面", "audio": "音乐配音", "level": "关卡地图", "prologue": "序章质量", "volume": "流程与内容量", "update": "后续更新"},
+      "tech": {"fps": "帧率与流畅度", "hardware": "配置与驱动", "shader": "着色器编译", "crash": "崩溃闪退", "graphics_opt": "画质与光追", "bug": "功能故障", "controller": "手柄与键位", "platform": "平台适配", "save": "存档与成就"},
+      "business": {"price": "定价与性价比", "sales": "销量表现", "buy_decision": "购买决策", "edition": "版本与典藏", "merch": "周边收藏", "refund": "退款售后", "channel": "购买渠道", "marketing": "宣发预告"},
+      "industry": {"domestic_3a": "国产大作意义", "vs_blackmyth": "对比黑神话", "vs_japanese": "对比日系作品", "vs_domestic": "对比国产同行", "media_score": "媒体评分", "policy": "审核与政策", "ecosystem": "资本与行业生态"},
+      "creator": {"commentary": "解说观点", "production": "剪辑制作", "persona": "创作者本人", "update_beg": "催更互动", "guide_value": "攻略教学", "stance": "商业合作与立场", "comment_area": "弹幕与评论区", "suggestion": "选题建议"},
+      "community": {"discourse": "舆论节奏", "accuse": "黑子水军指控", "meme": "热梗段子", "pun_meme": "谐音审核梗", "dev_meme": "制作人梗", "circle": "玩家圈子", "quarrel": "玩家争论", "heat": "热度出圈"},
+      "player": {"bought": "购买与开玩", "progress": "游玩进度", "time_conflict": "时间冲突", "emotion": "情怀感动", "goty": "个人年度最佳", "favorite": "个人偏好", "identity": "玩家身份", "health": "游玩与健康"}
+    },
     "sentiment": {"very_neg": "极度负面", "neg": "偏负面", "neutral": "中立", "pos": "偏正面", "very_pos": "极度正面"},
     "target": {"game": "游戏本体", "dev": "开发团队", "publisher": "发行渠道", "creator": "UP主视频",
                "other_player": "其他玩家", "other_game": "其他游戏行业", "none": "无对象"},
@@ -36,9 +46,10 @@
       "单个 choice 选项数 ≤ 12（Laya 超 20 断崖式下跌）",
       "中文禁用 noul（官方 zh 基准会退化成常数 true），二分维度一律用两选项 choice",
       "情感禁用 score（最弱原语 + multilingual 位置偏置），用 5 档 choice",
-      "所有 choice 用 option_order 做 k 次轮转平均，k 个轮转放同一次前向",
+      "诊断时曾比较 option_order 轮转平均；当前版本默认关闭轮转",
       "criteria 必须写判定要点，只给标签名准确率明显更低",
       "选项键必须不透明（O1..On），语义名放进 criteria 描述——英文语义键会劫持答案",
+      "训练与模型路由使用稳定内部标识；一级主题与各分支二级主题的中文名称以 cn_names 为唯一来源，预测落盘和业务展示统一汉化",
       "option_order 轮转实测无收益且贵 11.5 倍，默认关闭",
       "建议 head_max_len=320, max_len=768（state P95 仅 280 字）",
       "零样本已证不可用（sentiment 在所有变体上都把 64-76% 判为负面，而本批数据明显偏正）——必须微调"

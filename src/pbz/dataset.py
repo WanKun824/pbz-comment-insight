@@ -3,7 +3,7 @@
 三个关键处理（少一个都会出问题）
 --------------------------------
 1. **按 (维度, 标签) 封顶** —— `is_toxic` 原始 6003:11，不封顶模型只会学先验。
-2. **按 rpid 切分** —— 同一条评论的所有决策进同一个 split，杜绝泄漏。
+2. **按 rpid 切分** —— 同一 ID 的所有决策进同一个 split；内容重复与上下文重叠另需检查。
 3. **gold schema** —— `laya.train` 要的是 ``{dim: {"probabilities": {key: 1.0}}}``，
    不是裸标签。第一版写成裸标签，`items_from_rows` 直接返回 0 items / invalid_target。
 """
@@ -26,6 +26,7 @@ from .schema import (
     render_keys,
     render_opts,
 )
+from .topics import topic_label
 
 DIMS = DIMS_MULTI + DIMS_BIN
 
@@ -104,7 +105,8 @@ def run(cfg: Config, cap: int | None = None) -> dict[str, int]:
         L.append(f'| {k} | {len(v)} | {counts[k]} |')
     L += ['', '## 封顶前后（全量）\n', '| 维度 | 标签 | 原始 | 保留 |', '|---|---|---:|---:|']
     for d, lab, a, b in cap_log:
-        L.append(f'| `{d}` | {lab} | {a} | {b}{" ⬇" if b < a else ""} |')
+        label = topic_label(sc, lab) if d == 'topic_l1' else lab
+        L.append(f'| `{d}` | {label} | {a} | {b}{" ⬇" if b < a else ""} |')
     L += ['', '## 各 split 标签分布\n']
     for d in DIMS:
         L.append(f'\n**{d}**\n')
@@ -112,15 +114,16 @@ def run(cfg: Config, cap: int | None = None) -> dict[str, int]:
         L.append('| 标签 | ' + ' | '.join(rows) + ' |')
         L.append('|---|' + '---:|' * len(rows))
         for lab in labs:
-            L.append(f'| {lab} | ' + ' | '.join(str(stat[s][d].get(lab, 0)) for s in rows) + ' |')
+            label = topic_label(sc, lab) if d == 'topic_l1' else lab
+            L.append(f'| {label} | ' + ' | '.join(str(stat[s][d].get(lab, 0)) for s in rows) + ' |')
     open(os.path.join(out_dir, 'stats.md'), 'w', encoding='utf-8').write('\n'.join(L))
 
-    _golden(w, split, out_dir, golden_n)
+    _golden(w, split, out_dir, golden_n, sc)
     return counts
 
 
-def _golden(w: pd.DataFrame, split: dict, out_dir: str, n: int) -> None:
-    """人工标注待办：分层 + 稀有类过采样。标完后替换 test 集，才是真指标。"""
+def _golden(w: pd.DataFrame, split: dict, out_dir: str, n: int, sc: dict) -> None:
+    """人工标注待办：分层 + 稀有类过采样。评测前先排除与训练集的内容重叠。"""
     pool = [sub.sample(min(len(sub), 25), random_state=1)
             for _, sub in w.groupby(['len_bucket', 'like_bucket'], observed=True)]
     rare = w[w['内容'].astype(str).str.contains(RARE_PATTERN, regex=True, na=False)]
@@ -133,7 +136,8 @@ def _golden(w: pd.DataFrame, split: dict, out_dir: str, n: int) -> None:
     cols = ['rpid', 'split_hint', '视频标题', '层级', '字数', '点赞', '父评论', '内容']
     out = g[[c for c in cols if c in g.columns]].copy()
     for d in DIMS:
-        out['弱_' + d] = g['w_' + d].values
+        out['弱_' + d] = (g['w_' + d].map(lambda value: topic_label(sc, value)).values
+                          if d == 'topic_l1' else g['w_' + d].values)
         out['人工_' + d] = ''
     for d in DIMS_UNTRAINED + ['topic_l2']:
         out['人工_' + d] = ''

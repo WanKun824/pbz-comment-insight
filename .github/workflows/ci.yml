@@ -30,42 +30,7 @@ jobs:
         run: ruff check src tests scripts
 
       - name: 隐私门禁（仓库里不得出现评论原文 / 昵称 / UID）
-        run: |
-          python - <<'PY'
-          import re, subprocess, sys
-          tracked = subprocess.run(['git','ls-files'], capture_output=True, text=True).stdout.split()
-          # 评论原文的特征：rpid 形态的长数字、uname/uid 字段、以及已知的 PII 文件名模式
-          FORBIDDEN = [
-              (r'"uname"\s*:\s*"[^<]', 'json 里的 uname 字段'),
-              (r'"uid"\s*:\s*"\d{5,}"', 'json 里的 uid'),
-              (r'^\s*\d{11,12}\s*,', 'csv 首列裸 rpid'),
-          ]
-          PII_PATHS = ['data/raw/cache/', 'data/raw/markdown/', 'comments_clean.parquet',
-                       'comments_clean.csv', 'weak_labels.parquet', 'pred_full.parquet',
-                       'spotcheck.csv', 'golden_todo', '可行动清单', '舆情报告',
-                       '.jsonl', 'logs/']
-          bad = []
-          for p in tracked:
-              for frag in PII_PATHS:
-                  if frag in p:
-                      bad.append(f'{p}  ← 路径命中 {frag}')
-          # data/README.md 里的 schema 示例是文档，不是真数据
-          ALLOW = {'data/README.md'}
-          for p in tracked:
-              if p in ALLOW or not p.endswith(('.json','.csv','.md','.html','.txt')):
-                  continue
-              try: s = open(p, encoding='utf-8', errors='ignore').read()
-              except OSError: continue
-              for pat, why in FORBIDDEN:
-                  if re.search(pat, s, re.M):
-                      bad.append(f'{p}  ← 内容命中 {why}')
-          if bad:
-              print('隐私门禁失败，以下文件不应入库：')
-              print('
-'.join('  ' + b for b in bad))
-              sys.exit(1)
-          print(f'ok  {len(tracked)} 个跟踪文件，无评论原文 / 昵称 / UID')
-          PY
+        run: python scripts/check_public_files.py
 
       - name: 标签体系自检
         run: |
@@ -81,5 +46,10 @@ jobs:
               assert q['type'] == 'choice', f'{name}: 中文禁用 noul'
               k = len(q['criteria'])
               assert k <= 12, f'{name}: {k} 个选项，超过 Laya 可用区间'
-          print(f'ok  Pass1 {len(p1)} 维度 · Pass2 {len(sc["pass2_by_l1"])} 分支 / {n2} 主题')
+          names = sc['meta']['cn_names']
+          assert set(names['topic_l1']) == set(sc['pass2_by_l1'])
+          for branch, data in sc['pass2_by_l1'].items():
+              assert set(names['topic_l2'][branch]) == set(data['topic_l2']['criteria'])
+              assert len(set(names['topic_l2'][branch].values())) == len(names['topic_l2'][branch])
+          print(f'ok  Pass1 {len(p1)} 维度 · Pass2 {len(sc["pass2_by_l1"])} 分支 / {n2} 个中文主题')
           PY

@@ -15,6 +15,21 @@
 | `train/stats.md` | 切分规模与封顶前后分布 | 否 |
 | `raw/` `clean/*.parquet` `weak/*.parquet` `train/*.jsonl` | 评论原文 | **是，已忽略** |
 
+## 两级主题输出与旧预测
+
+`p_topic_l1`、`p_topic_l2` 及两级概率字典键统一使用中文；完整映射见
+[两级中文标签](../docs/两级中文标签.md)。已有英文预测可运行：
+
+```bash
+pbz localize-topics       # 无需模型，转换本地预测文件，可重复执行
+pbz aggregate            # 刷新中文报告及二级主题聚合 CSV
+pbz dashboard
+```
+
+公开可查看 `artifacts/report/二级主题分布.csv`，它只含一级主题、二级主题和条数。
+训练 JSONL 与弱标签 parquet 仍使用内部兼容标识，避免改变现有模型的训练输入；
+新导出的人工标注待办与主题统计报告使用中文展示。
+
 ## 怎么把数据补回来
 
 ### 自己抓

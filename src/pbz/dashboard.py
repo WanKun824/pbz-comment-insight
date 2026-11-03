@@ -26,6 +26,7 @@ import pandas as pd
 
 from .config import Config
 from .schema import DIMS_UNTRAINED, load_schema
+from .topics import localize_predictions, topic_distribution, topic_label
 
 CST = timezone(timedelta(hours=8))
 NEG_SET = {'very_neg', 'neg'}
@@ -189,7 +190,7 @@ def sec_pipeline(d: dict) -> str:
         ('1', 'probe', '关键词探针', '量化主题分布，为体系定档'),
         ('2', 'diag', '坍缩诊断', '定位主因：标签文本劫持 ≫ 位置偏置'),
         ('3', 'weak', '规则弱监督', '高精度优先，允许弃权'),
-        ('3b', 'dataset', '封顶+切分', '按 rpid 切分，杜绝泄漏'),
+        ('3b', 'dataset', '封顶+切分', '按 rpid 切分；内容与上下文重叠另需检查'),
         ('4', 'train', '微调', 'parallel option layout'),
         ('5', 'evaluate', '冻结 test 评测', '三方对照 + 覆盖率曲线'),
         ('6', 'predict', '全量打标', '两级推理，valid 闸门'),
@@ -260,7 +261,8 @@ def sec_weak(d: dict) -> str:
     rows = []
     for dim in dims:
         s = w['w_' + dim]
-        dist = ' · '.join(f'{k} {v}' for k, v in s.value_counts().head(4).items())
+        dist = ' · '.join(f'{topic_label(d["schema"], k) if dim == "topic_l1" else k} {v}'
+                          for k, v in s.value_counts().head(4).items())
         rows.append((dim, s.notna().mean(), dist))
     rows.sort(key=lambda x: -x[1])
     b = bars(rows, vmax=1.0, fmt='{:.1%}',
@@ -359,17 +361,29 @@ def sec_confusion(d: dict) -> str:
             f'<p class="note">行 = 真值，列 = 预测；颜色按行归一化，对角线为正确。</p>')
 
 
+def sec_topics(d: dict) -> str:
+    sc = d.get('schema')
+    if not sc:
+        return ''
+    rows = []
+    names = sc['cn_names']['topic_l2']
+    for branch, data in sc['pass2_by_l1'].items():
+        labels = [names[branch][key] for key in data['topic_l2']['criteria']]
+        rows.append({'一级主题': topic_label(sc, branch), '二级主题数': len(labels),
+                     '二级主题': ' / '.join(labels)})
+    return table(pd.DataFrame(rows))
+
+
 def sec_business(d: dict) -> str:
     p = d.get('pred')
     if p is None:
         return ''
     sc = d.get('schema') or {}
-    cn = sc.get('cn_names', {}) or sc.get('meta', {}).get('cn_names', {})
-    cn_l1 = cn.get('topic_l1', {})
+    p = localize_predictions(p, sc)
     wmap = {'very_neg': -2, 'neg': -1, 'neutral': 0, 'pos': 1, 'very_pos': 2}
 
     df = p[~p['p_valid'].isin(['fragment', 'spam'])].copy()
-    df['L1'] = df['p_topic_l1'].map(lambda x: cn_l1.get(x, x))
+    df['L1'] = df['p_topic_l1']
     df['sc'] = df['p_sentiment'].map(wmap).fillna(0).astype(float)
     df['neg'] = df['p_sentiment'].isin(NEG_SET).astype(int)
     df['日期'] = pd.to_datetime(df['时间']).dt.strftime('%m-%d')
@@ -404,6 +418,8 @@ def sec_business(d: dict) -> str:
         '赞加权情感': agg['ws'].round(2).values,
         '加权差': (agg['ws'] - agg['s']).round(2).values}))
 
+    topics = topic_distribution(df, sc)
+    detail = table(topics.sort_values('条数', ascending=False).head(20))
     return (f'<div class="g2"><div><h3>主题体量</h3>{vol}</div>'
             f'<div><h3>各主题负面率</h3>{negb}</div></div>'
             f'<h3>未加权 vs 赞加权情感</h3>{gap}'
@@ -414,15 +430,20 @@ def sec_business(d: dict) -> str:
             f'<h3>负面率时间线</h3>{line}'
             f'<p class="note">10-29 发售当天负面率跳到 33.5%，'
             f'<code>技术性能</code> 话题占比从 8% 飙到 18.5%（着色器编译 / 驱动 / 手柄）。</p>'
-            f'{heat}<h3>汇总</h3>{tbl}')
+            f'{heat}<h3>汇总</h3>{tbl}'
+            f'<h3>二级主题分布（前 20 项）</h3>{detail}'
+            f'<p class="note">一级与二级标签均使用中文；完整计数见二级主题分布.csv。'
+            f'二级主题尚无独立人工评测。</p>')
 
 
 def sec_limits() -> str:
     items = [
         ('高', 'test 标签来自规则弱监督，不是人工标注',
          '分数衡量「模型是否学会了规则体现的那套判别」，不等于人工一致率。'
-         '抽检估计规则本身 topic_l1 精度约 72–75%，真实上限 ≈ 规则精度 × 0.91。'
-         '<code>data/train/golden_todo.xlsx</code>（589 条）标完替换 test 集重跑才是真指标。'),
+         '抽检估计规则本身 topic_l1 精度约 72–75%；模型的人工一致率仍需独立验证。'
+         '<code>data/train/golden_todo.xlsx</code>（589 条）需先排除训练重叠，再标注评测。'),
+        ('高', '二级主题尚无独立评测', '当前弱标签训练集只有一级主题等 12 个维度，'
+         '没有 topic_l2 监督。中文名称转换不会提升或重新测量模型准确率。'),
         ('高', 'is_toxic 完全失败', 'macro-F1 0.489 = 全预测 B。训练集正例仅 11 条。'
                                 '<b>不可用于自动封禁或处罚。</b>'),
         ('高', 'sentiment 学不出 neutral', '规则从不输出中立，全量预测里 neutral 仅 0.3%。'
@@ -504,9 +525,13 @@ def _confusion(cfg: Config, dims=('topic_l1', 'valid', 'sentiment', 'speech_act'
                 except ValueError:
                     break
         if rows and cols:
-            out[dim] = pd.DataFrame({c: [r[1][j] if j < len(r[1]) else 0 for r in rows]
-                                     for j, c in enumerate(cols)},
-                                    index=[r[0] for r in rows])
+            cm = pd.DataFrame({c: [r[1][j] if j < len(r[1]) else 0 for r in rows]
+                               for j, c in enumerate(cols)}, index=[r[0] for r in rows])
+            if dim == 'topic_l1':
+                sc = load_schema(cfg.path('paths.taxonomy'))
+                names = sc['cn_names']['topic_l1']
+                cm = cm.rename(index=names, columns=names)
+            out[dim] = cm
     return out
 
 
@@ -651,6 +676,8 @@ def build(cfg: Config, out: str | None = None) -> str:
 
     specs = [
         ('·', '概览', sec_overview(cfg, d), ''),
+        ('T', '两级中文主题标签', sec_topics(d),
+         '8 个一级主题、67 个二级主题，名称统一来自标签体系。'),
         ('0', '流水线', sec_pipeline(d),
          '每个阶段都是一条可独立运行的命令，产物落盘，可从任意阶段续跑。'),
         ('1', '数据重建', sec_rebuild(cfg, d),
@@ -696,7 +723,7 @@ def build(cfg: Config, out: str | None = None) -> str:
 <h1>{esc(cfg.game)} 评论多维决策模型 <small>训练过程与结果看板</small></h1>
 <div class="sub">{head_sub}</div>
 <div class="sub" style="margin-top:4px">生成于 {datetime.now(CST):%Y-%m-%d %H:%M} CST
- · 由 <code>pbz dashboard</code> 从产物现读生成，无硬编码数字</div>
+ · 统计指标来自产物，两级主题名称来自标签体系；由 <code>pbz dashboard</code> 生成</div>
 </header>
 {navbar}
 {''.join(secs)}

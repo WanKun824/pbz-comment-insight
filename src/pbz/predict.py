@@ -27,6 +27,7 @@ from .schema import (
     render_keys,
     render_opts,
 )
+from .topics import localize_predictions, topic_label
 
 GATE = {'fragment', 'spam'}
 
@@ -72,9 +73,9 @@ def run(cfg: Config, *, out: str | None = None, limit: int = 0, ckpt: str | None
     lq1, meta1 = expand(q1, rotate)
     print(f'[predict] pass1 {len(q1_raw)} 维度 → {len(lq1)} 行/条（轮转 {rotate}、键 {ks}）'
           f'　总决策 {len(lq1) * len(states_list):,}')
-    t0 = time.time()
+    t0 = time.perf_counter()
     r1 = agent.predict_batch(states_list, lq1, batch_size=bs, sort_by_length=True)
-    dt = time.time() - t0
+    dt = max(time.perf_counter() - t0, 1e-9)
     print(f'[predict] pass1 {dt:.1f}s　{dt / len(states_list) * 1000:.0f}ms/条　'
           f'{len(lq1) * len(states_list) / dt:,.0f} 决策/秒')
     res = [reduce_answers(r['answers'], meta1, km1) for r in r1]
@@ -99,7 +100,7 @@ def run(cfg: Config, *, out: str | None = None, limit: int = 0, ckpt: str | None
                                      batch_size=bs, sort_by_length=True)
             for i, r in zip(idx, r2, strict=True):
                 res[i].update(reduce_answers(r['answers'], meta2, km2))
-            print(f'           {l1:<10} n={len(idx)}')
+            print(f'           {topic_label(sc, l1):<10} n={len(idx)}')
         print(f'[predict] pass2 {time.time() - t0:.1f}s')
 
     # ---------------- 落盘
@@ -110,7 +111,7 @@ def run(cfg: Config, *, out: str | None = None, limit: int = 0, ckpt: str | None
     rec['m_topic_l1'] = [o.get('topic_l1', {}).get('margin') for o in res]
     rec['probs_json'] = [json.dumps({k: v.get('probs', {}) for k, v in o.items()},
                                     ensure_ascii=False) for o in res]
-    final = pd.concat([df, pd.DataFrame(rec)], axis=1)
+    final = localize_predictions(pd.concat([df, pd.DataFrame(rec)], axis=1), sc)
     os.makedirs(os.path.dirname(out), exist_ok=True)
     final.to_parquet(out, index=False)
     print(f'\n[predict] → {out}　{final.shape}')

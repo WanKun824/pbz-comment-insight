@@ -9,6 +9,7 @@
     pbz train [--dry]            阶段 4：微调
     pbz evaluate                 阶段 5：冻结 test 集评测
     pbz predict [--limit N]      阶段 6：全量打标
+    pbz localize-topics          将已有预测文件的两级主题及概率键汉化（无需模型）
     pbz aggregate                阶段 7：舆情报告
     pbz dashboard                生成自包含 HTML 看板（过程 + 结果）
     pbz pipeline [--skip-train]  端到端一把跑
@@ -76,6 +77,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument('--batch-size', type=int, default=None)
     p.add_argument('--no-pass2', action='store_true')
     p.add_argument('--states', default=None)
+
+    p = sub.add_parser('localize-topics', help='将已有预测的两级主题及概率键汉化，无需模型')
+    _common(p)
+    p.add_argument('--pred', default=None, help='默认读取配置中的预测 parquet')
+    p.add_argument('--out', default=None, help='另存为指定 parquet；默认原子替换输入文件')
 
     p = sub.add_parser('aggregate', help='阶段 7：舆情报告')
     _common(p)
@@ -173,6 +179,9 @@ def main(argv: list[str] | None = None) -> int:
         predict.run(cfg, out=args.out, limit=args.limit, ckpt=args.ckpt, base=args.base,
                     rotate=args.rotate, batch_size=args.batch_size,
                     no_pass2=args.no_pass2, states=args.states)
+    elif args.cmd == 'localize-topics':
+        from . import topics
+        topics.run(cfg, pred=args.pred, out=args.out)
     elif args.cmd == 'aggregate':
         from . import aggregate
         aggregate.run(cfg, pred=args.pred, min_conf=args.min_conf)

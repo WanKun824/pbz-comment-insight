@@ -18,7 +18,27 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  check-pages:
+    runs-on: ubuntu-latest
+    outputs:
+      enabled: ${{ steps.status.outputs.enabled }}
+    steps:
+      - id: status
+        name: 检查仓库是否已开启 Pages
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PBZ_REPO: ${{ github.repository }}
+        run: |
+          if gh api "repos/$PBZ_REPO/pages" >/dev/null 2>&1; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+            echo "Pages 尚未开启，跳过部署。设置步骤见 docs/推送到GitHub.md。"
+          fi
+
   deploy:
+    needs: check-pages
+    if: needs.check-pages.outputs.enabled == 'true'
     runs-on: ubuntu-latest
     environment:
       name: github-pages

@@ -7,7 +7,7 @@
 
 | 项 | 值 |
 |---|---|
-| 标签体系 | Pass1 **14 个正交维度** + Pass2 **8 分支 / 67 个二级主题** |
+| 标签体系 | Pass1 **14 个正交维度** + Pass2 **8 分支 / 67 个二级主题，两级主题均中文输出** |
 | 微调 | `laya-multilingual` + `option_layout="parallel"`，RTX 3060 12G，**60.8 分钟** |
 | dev 提升 | accuracy **0.3375 → 0.9251**，ECE 0.1553 → 0.0483，Brier 0.743 → 0.130 |
 | 推理吞吐 | 单卡 ~138 决策/秒，全量 9,696 条 × 14 维度 = 135,744 决策 **16 分钟** |
@@ -17,12 +17,12 @@
 
 ## 看板
 
-`artifacts/report/dashboard.html` —— **自包含单文件**训练看板（67 KB，无 CDN / 无 JS 依赖，
+`artifacts/report/dashboard.html` —— **自包含单文件**训练看板（无 CDN / 无 JS 依赖，
 支持深浅色与移动端）。条形图用 CSS 宽度、热力图用 CSS grid、折线图用内联 SVG，
 所以离线、内网、GitHub Pages 都能直接看。
 
-十个小节：概览 · 流水线 · 数据重建 · 坍缩诊断 · 规则弱监督 · 微调 · 评测 · 混淆矩阵 · 业务结果 · 已知限制。
-所有数字从产物现读，没有硬编码 —— 重跑流水线后 `pbz dashboard` 即刷新。
+十一个小节：概览 · 两级中文主题标签 · 流水线 · 数据重建 · 坍缩诊断 · 规则弱监督 · 微调 · 评测 · 混淆矩阵 · 业务结果 · 已知限制。
+统计图表读取本地产物，两级主题名称读取标签体系；历史诊断说明保留既有实验结论。重跑 `pbz dashboard` 即可刷新。
 
 ```bash
 pbz dashboard --open      # 生成并用默认浏览器打开
@@ -33,19 +33,22 @@ pbz dashboard --open      # 生成并用默认浏览器打开
 **本仓库不含任何评论原文、昵称或 UID。** 评论是 B站公开页面的用户内容，
 公开再分发会造成隐私问题，所以全部由 `.gitignore` 排除（29 个文件 / 75 MB）。
 
-- `python scripts/privacy_scan.py` 可随时复核哪些文件含个人数据
-- CI 有**隐私门禁**：跟踪文件里出现评论原文 / `uname` / `uid` / 裸 rpid 就直接失败
-- 看板经过严格核对：对 7,876 个昵称、8,010 个 UID、7,304 条评论片段**零命中**，故可公开
-- 入库的只有聚合结果（主题×情感矩阵、时间线、视频维度）和指标报告
+- `python scripts/privacy_scan.py --tracked-only` 使用本地评论探针复核待发布文件，`python scripts/check_public_files.py` 执行与 CI 相同的规则门禁
+- CI 有**隐私门禁**：跟踪文件命中私有产物路径或昵称、UID、评论标识的特征规则时失败
+- 本次发布复核：7,195 个昵称、7,774 个 UID、600 条评论片段探针在跟踪文件中零命中
+- 入库的只有聚合结果（主题×情感矩阵、两级主题分布、时间线、视频维度）和指标报告
 
 怎么把数据补回来、缓存 json 的字段结构 —— 见 [`data/README.md`](data/README.md)。
 
 ## 快速开始
 
+只查看结果：克隆后直接打开 [`artifacts/report/dashboard.html`](artifacts/report/dashboard.html)，无需 Python 或 GPU。
+公开 Git 仓库不含评论、训练 JSONL、预测 parquet 和模型权重；需按 [`data/README.md`](data/README.md) 准备数据，权重可自行训练或单独获取。
+
 ```bash
 pip install -e .          # 装包与依赖（laya / torch / transformers>=5 …）
 pbz info                  # 看配置与各阶段产物是否就位
-pbz aggregate             # 用仓库自带的预测结果，直接出舆情报告
+pbz aggregate             # 需要本地已有预测 parquet，生成舆情报告
 ```
 
 要从零重跑：
@@ -66,8 +69,10 @@ pbz dataset --cap 450     # 阶段 3b：封顶 + 切分 + JSONL + 人工标注�
 pbz train --dry           # 阶段 4：先看数据统计
 pbz train --epochs 4      #          正式训练
 pbz evaluate              # 阶段 5：冻结 test 集三方对照 + 覆盖率曲线
-pbz predict               # 阶段 6：全量两级打标
-pbz aggregate             # 阶段 7：舆情报告
+pbz predict               # 阶段 6：全量两级打标，主题输出为中文
+pbz localize-topics       # 已有英文预测的两级主题迁移，无需模型，可重复执行
+pbz aggregate             # 阶段 7：舆情报告 + 二级主题分布
+pbz dashboard             # 刷新自包含中文看板
 ```
 
 路径、超参、阈值全在 `config.yaml`，命令行参数可覆盖。
@@ -83,6 +88,7 @@ pbz-comment-insight/
 ├── src/pbz/
 │   ├── config.py               配置加载 + Windows UTF-8 stdout
 │   ├── schema.py               标签体系唯一实现来源：键渲染 / 轮转 / 答案归约
+│   ├── topics.py               两级主题中文输出、旧预测迁移、二级聚合
 │   ├── lexicon.py              规则词表与关键词探针（weak 与 probe 共用）
 │   ├── rebuild.py              阶段 0
 │   ├── weak.py                 阶段 3 + probe
@@ -95,6 +101,7 @@ pbz-comment-insight/
 │   └── cli.py                  `pbz` 命令
 ├── taxonomy/labels_v2.json     标签体系（含 render 方案与实测数字）
 ├── docs/
+│   ├── 两级中文标签.md         8+67 完整中文对照、输出格式、迁移与模型兼容
 │   ├── 标签体系_v2.md          体系设计、旧体系诊断、迁移表
 │   ├── 训练实录.md             每个阶段的真实数字与踩过的坑
 │   └── MODEL_CARD.md           模型卡：用途、限制、不该怎么用
@@ -108,7 +115,7 @@ pbz-comment-insight/
     ├── ckpt/laya-pbz-v1/       微调权重（`laya.load()` 可直接加载）
     ├── pred/pred_full.parquet  全量 9,696 条打标结果
     ├── eval/                   评测报告 + 混淆矩阵 + 覆盖率曲线
-    └── report/                 舆情报告 + 4 个 csv
+    └── report/                 离线看板、舆情报告 + 5 个 csv
 ```
 
 ---
@@ -125,7 +132,7 @@ pbz-comment-insight/
 | 维度 | 类型 | 选项 | 作用 |
 |---|---|---:|---|
 | `valid` | choice | 4 | **前置闸门**：substantive / banter / fragment / spam |
-| `topic_l1` | choice | 8 | combat / content / tech / business / industry / creator / community / player |
+| `topic_l1` | choice | 8 | 战斗 / 内容品质 / 技术性能 / 商业产品 / 行业生态 / 视频与UP主 / 社区舆论 / 玩家自述 |
 | `sentiment` | choice | 5 | very_neg → very_pos |
 | `is_mixed` | choice | 2 | 是否褒贬并存 |
 | `target` | choice | 7 | 评价对象 |
@@ -134,7 +141,25 @@ pbz-comment-insight/
 
 ### Pass2（按 topic_l1 分支，67 个二级主题）
 
-combat 9 · content 10 · tech 9 · business 8 · industry 7 · creator 8 · community 8 · player 8
+| 一级主题 | 二级数 | 二级主题（完整中文名称） |
+|---|---:|---|
+| 战斗 | 9 | 战斗手感 / 拼刀精防 / 招式流派 / 战斗难度 / 首领战斗 / 小怪与地形 / 按键操作 / 战斗演出 / 品类归属 |
+| 内容品质 | 10 | 主线剧情 / 世界观与武侠味 / 角色塑造 / 台词文案 / 美术画面 / 音乐配音 / 关卡地图 / 序章质量 / 流程与内容量 / 后续更新 |
+| 技术性能 | 9 | 帧率与流畅度 / 配置与驱动 / 着色器编译 / 崩溃闪退 / 画质与光追 / 功能故障 / 手柄与键位 / 平台适配 / 存档与成就 |
+| 商业产品 | 8 | 定价与性价比 / 销量表现 / 购买决策 / 版本与典藏 / 周边收藏 / 退款售后 / 购买渠道 / 宣发预告 |
+| 行业生态 | 7 | 国产大作意义 / 对比黑神话 / 对比日系作品 / 对比国产同行 / 媒体评分 / 审核与政策 / 资本与行业生态 |
+| 视频与UP主 | 8 | 解说观点 / 剪辑制作 / 创作者本人 / 催更互动 / 攻略教学 / 商业合作与立场 / 弹幕与评论区 / 选题建议 |
+| 社区舆论 | 8 | 舆论节奏 / 黑子水军指控 / 热梗段子 / 谐音审核梗 / 制作人梗 / 玩家圈子 / 玩家争论 / 热度出圈 |
+| 玩家自述 | 8 | 购买与开玩 / 游玩进度 / 时间冲突 / 情怀感动 / 个人年度最佳 / 个人偏好 / 玩家身份 / 游玩与健康 |
+
+预测中的 `p_topic_l1`、`p_topic_l2` 及两级概率字典键均为中文。内部标识和模型选项顺序保持兼容，旧权重与训练数据可继续使用，无需为汉化重训。
+完整字段说明、67 项内部标识对照及旧结果迁移步骤见 [两级中文标签手册](docs/两级中文标签.md)。
+
+```bash
+pbz localize-topics       # 将本地旧英文预测汉化；也支持 --pred / --out 另存
+pbz aggregate            # 输出中文报告及 artifacts/report/二级主题分布.csv
+pbz dashboard            # 看板显示完整标签表及二级主题分布
+```
 
 针对单机买断制 3A 定制：没有抽卡/体力/排位/外挂/服务器经济；
 有**类魂品类之争、序章质量、着色器编译、谐音审核梗、制作人女装梗、UP主身体、请假上班、对比黑神话**。
@@ -215,8 +240,8 @@ v2 逐条修完。中间还踩过一个坑：把「带转折词」直接弃权�
 
 1. **test 标签来自规则弱监督，不是人工标注。** 0.911 衡量的是「模型是否学会了规则体现的
    那套判别」，不等于真实人工一致率。抽检估计规则本身 `topic_l1` 精度约 72–75%，
-   所以真实人工 accuracy 上限 ≈ 规则精度 × 0.91。
-   **`data/train/golden_todo.xlsx`（589 条，含弱标签对照列）标完后替换 test 集重跑，才是真指标。**
+   模型的人工一致率仍需独立测量，不能将这两个比例相乘推导准确率上限。
+   **人工待办（589 条）须先排除与训练数据的重叠，再标注为独立评测集。**
 2. **`is_toxic` 完全失败**：macro-F1 0.489 = 全预测 B。训练集正例仅 11 条。
 3. **`sentiment` 学不出 `neutral`**：规则从不输出中立，全量预测里 neutral 仅 0.3%。
    这是弱监督的结构性缺陷，必须人工补。
@@ -227,12 +252,14 @@ v2 逐条修完。中间还踩过一个坑：把「带转折词」直接弃权�
    ONNX 导出、TileLang 快路径、`compile=True` 都会拒绝这个检查点。
 7. **`IP属地` 全为「未知」**，地域维度做不了。
 8. 跨游戏泛化未验证。词表与二级主题是围绕《影之刃零》与这 7 个视频长出来的。
+9. **二级主题尚无独立评测**：当前训练 JSONL 未包含 `topic_l2` 监督；两级汉化仅转换名称，不改变或重新验证模型效果。
+10. **现有切分并非完全独立**：训练报告已标记 dev 有重叠，本地复核也发现 train/test 存在少量相同输入及标注。正式评测需按内容及上下文去重后重建划分。
 
 ---
 
 ## 下一步（按收益排序）
 
-1. 标完 `golden_todo.xlsx` 589 条 → 替换 test 集，拿到真实指标（**当前唯一的大不确定性**）
+1. 排除训练重叠后标注 `golden_todo.xlsx` → 建立独立人工 test 集，测量真实效果
 2. 补 `neutral` / `is_toxic` / `is_sarcasm` 的人工正例（各 150+）→ 重训
 3. 上线置信度门控，用训练时拟合的按桶阈值：`choice:6-10`=0.300 / `choice:3-5`=0.974 / `choice:2`=0.633
 4. 扩到更多视频与其他游戏，验证跨游戏泛化

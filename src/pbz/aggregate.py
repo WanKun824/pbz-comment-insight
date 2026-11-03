@@ -15,6 +15,7 @@ import pandas as pd
 
 from .config import Config
 from .schema import DIMS_BIN, DIMS_UNTRAINED, load_schema
+from .topics import localize_predictions, topic_distribution
 
 NEG_SET = {'very_neg', 'neg'}
 
@@ -31,9 +32,9 @@ def run(cfg: Config, *, pred: str | None = None, min_conf: float | None = None) 
 
     sc = load_schema(cfg.path('paths.taxonomy'))
     cn = sc.get('cn_names', {})
-    cn_l1, cn_sent = cn.get('topic_l1', {}), cn.get('sentiment', {})
+    cn_sent = cn.get('sentiment', {})
 
-    df = pd.read_parquet(pred)
+    df = localize_predictions(pd.read_parquet(pred), sc)
     n0 = len(df)
     df = df[~df['p_valid'].isin(drop)].copy()
     if min_conf > 0:
@@ -41,7 +42,7 @@ def run(cfg: Config, *, pred: str | None = None, min_conf: float | None = None) 
     print(f'[aggregate] {n0} → {len(df)} 条'
           f'（去 {"/".join(sorted(drop))}{f"、置信≥{min_conf:.2f}" if min_conf else ""}）')
 
-    df['L1'] = df['p_topic_l1'].map(lambda x: cn_l1.get(x, x))
+    df['L1'] = df['p_topic_l1']
     df['情感'] = df['p_sentiment'].map(lambda x: cn_sent.get(x, x))
     df['情感分'] = df['p_sentiment'].map(weight).fillna(0).astype(float)
     df['负面'] = df['p_sentiment'].isin(NEG_SET).astype(int)
@@ -66,6 +67,11 @@ def run(cfg: Config, *, pred: str | None = None, min_conf: float | None = None) 
           '> 「赞加权情感」按点赞加权，反映**被多少人看到**的情绪。'
           '与未加权值差距越大，说明该主题的高赞评论倾向越极端。\n']
     piv.to_csv(os.path.join(out_dir, '主题情感矩阵.csv'), encoding='utf-8-sig')
+
+    topics = topic_distribution(df, sc)
+    topics.to_csv(os.path.join(out_dir, '二级主题分布.csv'), index=False, encoding='utf-8-sig')
+    L += ['### 两级主题分布\n', topics.to_markdown(index=False), '',
+          '> 二级主题尚无独立人工评测；这里仅汇总现有预测，不代表已验证的分类准确率。\n']
 
     # ---------------- 2. 时间线
     tl = df.groupby('日期').agg(条数=('rpid', 'size'), 负面率=('负面', 'mean'),
@@ -100,7 +106,8 @@ def run(cfg: Config, *, pred: str | None = None, min_conf: float | None = None) 
             L.append(f'- **赞{r["点赞"]}** `{r.get("p_topic_l2", "")}` {str(r["内容"])[:110]}')
     keep = [c for c in ['rpid', 'L1', 'p_topic_l2', 'p_sentiment', 'c_has_issue', '点赞', '内容']
             if c in act.columns]
-    act[keep].to_csv(os.path.join(out_dir, '可行动清单.csv'), index=False, encoding='utf-8-sig')
+    act[keep].rename(columns={'L1': '一级主题', 'p_topic_l2': '二级主题'}).to_csv(
+        os.path.join(out_dir, '可行动清单.csv'), index=False, encoding='utf-8-sig')
 
     # ---------------- 5. 二分维度总览
     rows = []
@@ -116,5 +123,5 @@ def run(cfg: Config, *, pred: str | None = None, min_conf: float | None = None) 
     p = os.path.join(out_dir, '舆情报告.md')
     open(p, 'w', encoding='utf-8').write('\n'.join(L))
     print(piv.to_string())
-    print(f'\n[aggregate] → {p} + 4 个 csv')
+    print(f'\n[aggregate] → {p} + 5 个 csv')
     return piv

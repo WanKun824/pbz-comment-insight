@@ -18,14 +18,14 @@
 | `valid` | fragment | 637 | 450 ⬇ |
 | `valid` | spam | 9 | 9 |
 | `valid` | substantive | 1355 | 450 ⬇ |
-| `topic_l1` | business | 154 | 154 |
-| `topic_l1` | combat | 814 | 450 ⬇ |
-| `topic_l1` | community | 93 | 93 |
-| `topic_l1` | content | 563 | 450 ⬇ |
-| `topic_l1` | creator | 170 | 170 |
-| `topic_l1` | industry | 422 | 422 |
-| `topic_l1` | player | 94 | 94 |
-| `topic_l1` | tech | 210 | 210 |
+| `topic_l1` | 商业产品 | 154 | 154 |
+| `topic_l1` | 战斗 | 814 | 450 ⬇ |
+| `topic_l1` | 社区舆论 | 93 | 93 |
+| `topic_l1` | 内容品质 | 563 | 450 ⬇ |
+| `topic_l1` | 视频与UP主 | 170 | 170 |
+| `topic_l1` | 行业生态 | 422 | 422 |
+| `topic_l1` | 玩家自述 | 94 | 94 |
+| `topic_l1` | 技术性能 | 210 | 210 |
 | `sentiment` | neg | 284 | 284 |
 | `sentiment` | pos | 711 | 450 ⬇ |
 | `sentiment` | very_neg | 45 | 45 |
@@ -74,14 +74,14 @@
 
 | 标签 | train | dev | test |
 |---|---:|---:|---:|
-| business | 127 | 13 | 14 |
-| combat | 359 | 43 | 48 |
-| community | 69 | 11 | 13 |
-| content | 346 | 56 | 48 |
-| creator | 130 | 19 | 21 |
-| industry | 333 | 38 | 51 |
-| player | 76 | 6 | 12 |
-| tech | 183 | 10 | 17 |
+| 商业产品 | 127 | 13 | 14 |
+| 战斗 | 359 | 43 | 48 |
+| 社区舆论 | 69 | 11 | 13 |
+| 内容品质 | 346 | 56 | 48 |
+| 视频与UP主 | 130 | 19 | 21 |
+| 行业生态 | 333 | 38 | 51 |
+| 玩家自述 | 76 | 6 | 12 |
+| 技术性能 | 183 | 10 | 17 |
 
 **sentiment**
 
